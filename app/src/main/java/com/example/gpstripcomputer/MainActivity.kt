@@ -7,6 +7,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -112,6 +113,7 @@ class MainActivity : ComponentActivity() {
         locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 val speed = (location.speed * 3600) / 1000 // Convert from m/s to km/h
+                Log.d("Speedometer", "Location updated: Speed = $speed km/h")
                 onSpeedChange(speed)
             }
 
