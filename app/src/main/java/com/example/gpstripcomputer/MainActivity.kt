@@ -12,8 +12,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,12 +23,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import java.util.*
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var locationManager: LocationManager
-    private lateinit var locationListener: LocationListener
+    // Define a class-level boolean variable for debug mode
     private var isDebugMode: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,7 +42,6 @@ class MainActivity : ComponentActivity() {
         var speed by remember { mutableStateOf(0f) }
         val context = LocalContext.current
 
-        // Remember a launcher to handle permission requests
         val permissionLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
             onResult = { isGranted: Boolean ->
@@ -52,12 +50,15 @@ class MainActivity : ComponentActivity() {
                         speed = newSpeed
                     }
                 } else {
+                    // Use isDebugMode to decide whether to log or display messages
+                    if (isDebugMode) {
+                        Log.d("Speedometer", "Permission denied")
+                    }
                     Toast.makeText(context, "Location permission required for speedometer", Toast.LENGTH_SHORT).show()
                 }
             }
         )
 
-        // Trigger the permission check and location tracking when the composable is launched
         LaunchedEffect(Unit) {
             checkPermissionsAndStartTracking(context, permissionLauncher)
         }
@@ -98,12 +99,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkPermissionsAndStartTracking(context: Context, permissionLauncher: ActivityResultLauncher<String>) {
+        // Use isDebugMode within functions
+        if (isDebugMode) {
+            Log.d("Speedometer", "Checking permissions...")
+        }
+
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
             startTracking(context) { speed ->
-                // Speed will be updated in the composable's state
+                // Update UI with new speed
             }
         }
     }
@@ -127,13 +133,6 @@ class MainActivity : ComponentActivity() {
 
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0f, locationListener)
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        if (::locationManager.isInitialized && ::locationListener.isInitialized) {
-            locationManager.removeUpdates(locationListener)
         }
     }
 }
