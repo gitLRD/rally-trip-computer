@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var locationManager: LocationManager
     private lateinit var locationListener: LocationListener
+    private var isDebugMode: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,13 +109,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startTracking(context: Context, onSpeedChange: (Float) -> Unit) {
-        locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
+        val locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
 
-        locationListener = object : LocationListener {
+        val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 val speed = (location.speed * 3600) / 1000 // Convert from m/s to km/h
-                Log.d("Speedometer", "Location updated: Speed = $speed km/h")
-                onSpeedChange(speed)
+                onSpeedChange(speed) // Update the speed value
+                if (isDebugMode) {
+                    Log.d("Speedometer", "Location updated: Speed = $speed km/h")
+                }
             }
 
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
