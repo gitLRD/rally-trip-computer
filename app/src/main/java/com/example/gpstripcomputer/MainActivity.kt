@@ -15,6 +15,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -67,7 +69,57 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            SpeedCard(speed)
+            Box(    // Wrap grid in a box to fill entire space
+                modifier = Modifier.fillMaxSize()
+            ) {
+                InfoGrid(speed) // Grid should now fill the screen vertically
+            }
+        }
+    }
+
+    @Composable
+    fun InfoGrid(speed: Float) {
+        val infoList = listOf(
+            "Speedometer", "Info 2", "Info 3",
+            "Info 4", "Info 5", "Info 6"
+        )
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxHeight(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(infoList.size) { index ->
+                if (index == 0) {
+                    SpeedCard(speed)
+                } else {
+                    InfoCard(info = infoList[index])
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun InfoCard(info: String) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1.5f), // Aspect ratio to make the card a bit rectangular
+            elevation = CardDefaults.cardElevation(8.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Text(
+                    text = info,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 
@@ -76,7 +128,7 @@ class MainActivity : ComponentActivity() {
         Card(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxWidth(),
+                .aspectRatio(1.5f),
             elevation = CardDefaults.cardElevation(8.dp)
         ) {
             Column(
