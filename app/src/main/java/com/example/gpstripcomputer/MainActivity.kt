@@ -27,6 +27,28 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.Locale
 
+data class Trip(
+    var distance: Float = 0f, // Distance in kilometers
+    var totalSpeed: Float = 0f, // Cumulative speed for average calculation
+    var speedCount: Int = 0 // Number of speed readings
+) {
+    val averageSpeed: Float
+        get() = if (speedCount > 0) totalSpeed / speedCount else 0f
+
+    fun update(speed: Float, deltaDistance: Float) {
+        distance += deltaDistance
+        totalSpeed += speed
+        speedCount++
+    }
+
+    fun reset() {
+        distance = 0f
+        totalSpeed = 0f
+        speedCount = 0
+    }
+}
+
+
 class MainActivity : ComponentActivity() {
 
     // Define a class-level boolean variable for debug mode
@@ -42,13 +64,15 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun SpeedometerApp() {
         var speed by remember { mutableStateOf(0f) }
+        var trip1 by remember { mutableStateOf(Trip()) }
+        var trip2 by remember { mutableStateOf(Trip()) }
         val context = LocalContext.current
 
         val permissionLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
             onResult = { isGranted: Boolean ->
                 if (isGranted) {
-                    startTracking(context) { newSpeed ->
+                    startTracking(context, listOf(trip1, trip2)) { newSpeed ->
                         speed = newSpeed
                     }
                 } else {
@@ -166,13 +190,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTracking(context: Context, onSpeedChange: (Float) -> Unit) {
+    private fun startTracking(context: Context, trips: List<Trip>, onSpeedChange: (Float) -> Unit) {
         val locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
+        var previousLocation: Location? = null
 
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 val speed = (location.speed * 3600) / 1000 // Convert from m/s to km/h
                 onSpeedChange(speed) // Update the speed value
+
+                val deltaDistance = previousLocation.let {
+                    val distance = location.distanceTo(it) / 1000 // convert meters to km
+                    distance
+                } ?: 0f
+
+                trips.forEach { trip ->
+                    trip.update(speed, deltaDistance)
+                }
+
+                previousLocation = location
+
                 if (isDebugMode) {
                     Log.d("Speedometer", "Location updated: Speed = $speed km/h")
                 }
