@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
         )
 
         LaunchedEffect(Unit) {
-            checkPermissionsAndStartTracking(context, permissionLauncher)
+            checkPermissionsAndStartTracking(context, permissionLauncher, listOf(trip1, trip2))
         }
 
         Surface(
@@ -96,22 +96,25 @@ class MainActivity : ComponentActivity() {
             Box(    // Wrap grid in a box to fill entire space
                 modifier = Modifier.fillMaxSize()
             ) {
-                InfoGrid(speed) // Grid should now fill the screen vertically
+                InfoGrid(speed, trip1 = trip1, trip2 = trip2) // Grid should now fill the screen vertically
             }
         }
     }
 
     @Composable
-    fun InfoGrid(speed: Float) {
+    fun InfoGrid(speed: Float, trip1: Trip, trip2: Trip) {
         val infoList = listOf(
-            "Speedometer", "Info 2", "Info 3",
-            "Info 4", "Info 5", "Info 6"
+            "Speedometer",
+            "Trip 1: ${String.format(Locale.getDefault(), "%.2f km", trip1.distance)}",
+            "Trip 1 Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trip1.averageSpeed)}",
+            "Trip 2: ${String.format(Locale.getDefault(), "%.2f km", trip2.distance)}",
+            "Trip 2 Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trip2.averageSpeed)}"
         )
+
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            modifier = Modifier
-                .fillMaxHeight(),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -174,7 +177,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkPermissionsAndStartTracking(context: Context, permissionLauncher: ActivityResultLauncher<String>) {
+    private fun checkPermissionsAndStartTracking(context: Context, permissionLauncher: ActivityResultLauncher<String>, trips: List<Trip>) {
         // Use isDebugMode within functions
         if (isDebugMode) {
             Log.d("Speedometer", "Checking permissions...")
@@ -184,7 +187,7 @@ class MainActivity : ComponentActivity() {
             != PackageManager.PERMISSION_GRANTED) {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
-            startTracking(context) { speed ->
+            startTracking(context, trips) { speed ->
                 // Update UI with new speed
             }
         }
@@ -199,10 +202,13 @@ class MainActivity : ComponentActivity() {
                 val speed = (location.speed * 3600) / 1000 // Convert from m/s to km/h
                 onSpeedChange(speed) // Update the speed value
 
-                val deltaDistance = previousLocation.let {
-                    val distance = location.distanceTo(it) / 1000 // convert meters to km
+                val lastLocation = previousLocation
+                val deltaDistance = if (lastLocation != null) {
+                    val distance = location.distanceTo(lastLocation) / 1000 // convert meters to km
                     distance
-                } ?: 0f
+                } else {
+                    0f
+                }
 
                 trips.forEach { trip ->
                     trip.update(speed, deltaDistance)
@@ -211,7 +217,7 @@ class MainActivity : ComponentActivity() {
                 previousLocation = location
 
                 if (isDebugMode) {
-                    Log.d("Speedometer", "Location updated: Speed = $speed km/h")
+                    Log.d("TripComputer", "Location updated: Speed = $speed km/h")
                 }
             }
 
