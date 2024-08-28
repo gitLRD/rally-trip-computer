@@ -86,6 +86,11 @@ class MainActivity : ComponentActivity() {
 
         LaunchedEffect(Unit) {
             checkPermissionsAndStartTracking(context, permissionLauncher, trips)
+
+            //Update speed when trips are updated
+            startTracking(context, trips) { newSpeed ->
+                speed = newSpeed
+            }
         }
 
         Surface(
