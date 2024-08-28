@@ -64,15 +64,14 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun SpeedometerApp() {
         var speed by remember { mutableStateOf(0f) }
-        var trip1 by remember { mutableStateOf(Trip()) }
-        var trip2 by remember { mutableStateOf(Trip()) }
+        val trips = remember { mutableStateListOf(Trip(), Trip()) }
         val context = LocalContext.current
 
         val permissionLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
             onResult = { isGranted: Boolean ->
                 if (isGranted) {
-                    startTracking(context, listOf(trip1, trip2)) { newSpeed ->
+                    startTracking(context, trips) { newSpeed ->
                         speed = newSpeed
                     }
                 } else {
@@ -86,7 +85,7 @@ class MainActivity : ComponentActivity() {
         )
 
         LaunchedEffect(Unit) {
-            checkPermissionsAndStartTracking(context, permissionLauncher, listOf(trip1, trip2))
+            checkPermissionsAndStartTracking(context, permissionLauncher, trips)
         }
 
         Surface(
@@ -96,20 +95,21 @@ class MainActivity : ComponentActivity() {
             Box(    // Wrap grid in a box to fill entire space
                 modifier = Modifier.fillMaxSize()
             ) {
-                InfoGrid(speed, trip1 = trip1, trip2 = trip2) // Grid should now fill the screen vertically
+                InfoGrid(speed, trips) // Grid should now fill the screen vertically
             }
         }
     }
 
     @Composable
-    fun InfoGrid(speed: Float, trip1: Trip, trip2: Trip) {
+    fun InfoGrid(speed: Float, trips: List<Trip>) {
         val infoList = listOf(
             "Speedometer",
-            "Trip 1: ${String.format(Locale.getDefault(), "%.2f km", trip1.distance)}",
-            "Trip 1 Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trip1.averageSpeed)}",
-            "Trip 2: ${String.format(Locale.getDefault(), "%.2f km", trip2.distance)}",
-            "Trip 2 Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trip2.averageSpeed)}"
+            "Trip 1: ${String.format(Locale.getDefault(), "%.2f km", trips[0].distance)}",
+            "Trip 1 Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[0].averageSpeed)}",
+            "Trip 2: ${String.format(Locale.getDefault(), "%.2f km", trips[1].distance)}",
+            "Trip 2 Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[1].averageSpeed)}"
         )
+
 
 
         LazyVerticalGrid(
@@ -177,7 +177,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkPermissionsAndStartTracking(context: Context, permissionLauncher: ActivityResultLauncher<String>, trips: List<Trip>) {
+    private fun checkPermissionsAndStartTracking(context: Context, permissionLauncher: ActivityResultLauncher<String>, trips: MutableList<Trip>) {
         // Use isDebugMode within functions
         if (isDebugMode) {
             Log.d("Speedometer", "Checking permissions...")
@@ -193,7 +193,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTracking(context: Context, trips: List<Trip>, onSpeedChange: (Float) -> Unit) {
+    private fun startTracking(context: Context, trips: MutableList<Trip>, onSpeedChange: (Float) -> Unit) {
         val locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
         var previousLocation: Location? = null
 
@@ -210,14 +210,16 @@ class MainActivity : ComponentActivity() {
                     0f
                 }
 
-                trips.forEach { trip ->
-                    trip.update(speed, deltaDistance)
+                trips.forEachIndexed { index, trip ->
+                    val updatedTrip = trip.copy()
+                    updatedTrip.update(speed, deltaDistance)
+                    trips[index] = updatedTrip // Update specific trip in the MutableList
                 }
 
                 previousLocation = location
 
                 if (isDebugMode) {
-                    Log.d("TripComputer", "Location updated: Speed = $speed km/h")
+                    Log.d("TripComputer", "Location updated: Speed = $speed km/h, Distance = $deltaDistance km")
                 }
             }
 
