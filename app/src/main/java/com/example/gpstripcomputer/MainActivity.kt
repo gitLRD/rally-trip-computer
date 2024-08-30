@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -107,42 +108,57 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun InfoGrid(speed: Float, trips: List<Trip>) {
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val speedCardHeight = screenHeight * 0.3f // 30% of the screen height for the SpeedCard
+        val gridHeight = screenHeight - speedCardHeight // The remaining height for the grid
+
         Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween // Ensure the speedometer stays at the bottom
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Trip information grid at the top
+            // 70% of the screen height for the trip information grid
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f), // This will allow the grid to take the needed space but not push the speedometer off the screen
+                    .weight(1f), // Fill the available space
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(trips.size * 2) { index ->
                     val tripIndex = index / 2
                     val isDistance = index % 2 == 0
-                    if (isDistance) {
-                        InfoCard(info = "Trip ${tripIndex + 1}: ${String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)}")
-                    } else {
-                        InfoCard(info = "Trip ${tripIndex + 1} Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)}")
-                    }
+                    InfoCard(
+                        info = if (isDistance) {
+                            "Trip ${tripIndex + 1}: ${String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)}"
+                        } else {
+                            "Trip ${tripIndex + 1} Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)}"
+                        },
+                        modifier = Modifier
+                            .height(80.dp) // Fixed height for each card
+                            .fillMaxWidth()
+                    )
                 }
             }
 
-            // Speedometer at the bottom
-            SpeedCard(speed)
+            // Add a Spacer to control the gap between the grid and the SpeedCard
+            Spacer(modifier = Modifier.height(8.dp)) // Adjust the height as needed
+
+            // 30% of the screen height for the speedometer
+            SpeedCard(
+                speed = speed,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(speedCardHeight) // 30% of the screen height
+                    .padding(horizontal = 16.dp, vertical = 8.dp) // Padding inside the card
+            )
         }
     }
 
     @Composable
-    fun InfoCard(info: String) {
+    fun InfoCard(info: String, modifier: Modifier = Modifier) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1.5f), // Aspect ratio to make the card a bit rectangular
+            modifier = modifier,
             elevation = CardDefaults.cardElevation(8.dp)
         ) {
             Box(
@@ -159,16 +175,17 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun SpeedCard(speed: Float) {
+    fun SpeedCard(speed: Float, modifier: Modifier = Modifier) {
         Card(
-            modifier = Modifier
-                .padding(16.dp)
-                .aspectRatio(1.5f),
+            modifier = modifier,
             elevation = CardDefaults.cardElevation(8.dp)
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = "Current Speed",
