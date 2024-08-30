@@ -107,30 +107,33 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun InfoGrid(speed: Float, trips: List<Trip>) {
-        val infoList = listOf(
-            "Speedometer",
-            "Trip 1: ${String.format(Locale.getDefault(), "%.2f km", trips[0].distance)}",
-            "Trip 1 Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[0].averageSpeed)}",
-            "Trip 2: ${String.format(Locale.getDefault(), "%.2f km", trips[1].distance)}",
-            "Trip 2 Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[1].averageSpeed)}"
-        )
-
-
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+        Column(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.SpaceBetween // Ensure the speedometer stays at the bottom
         ) {
-            items(infoList.size) { index ->
-                if (index == 0) {
-                    SpeedCard(speed)
-                } else {
-                    InfoCard(info = infoList[index])
+            // Trip information grid at the top
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f), // This will allow the grid to take the needed space but not push the speedometer off the screen
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(trips.size * 2) { index ->
+                    val tripIndex = index / 2
+                    val isDistance = index % 2 == 0
+                    if (isDistance) {
+                        InfoCard(info = "Trip ${tripIndex + 1}: ${String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)}")
+                    } else {
+                        InfoCard(info = "Trip ${tripIndex + 1} Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)}")
+                    }
                 }
             }
+
+            // Speedometer at the bottom
+            SpeedCard(speed)
         }
     }
 
