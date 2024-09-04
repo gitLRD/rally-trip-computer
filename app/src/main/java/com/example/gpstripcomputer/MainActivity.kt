@@ -16,7 +16,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -109,21 +111,19 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun InfoGrid(speed: Float, trips: List<Trip>) {
-        ConstraintLayout(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Create references for the components
-            val (grid, speedCard) = createRefs()
+        val configuration = LocalConfiguration.current
+        val screenHeight = configuration.screenHeightDp.dp
+        val screenWidth = configuration.screenWidthDp.dp
+        val cardHeight = screenHeight / 3
+        val gridHeight = screenHeight * 2 / 3
+        val cardWidth = screenWidth / 2
 
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyHorizontalGrid(
+                rows = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .constrainAs(grid) {
-                        top.linkTo(parent.top)
-                        bottom.linkTo(speedCard.top)
-                        height = Dimension.preferredWrapContent
-                    }
+                    .height(gridHeight)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -138,21 +138,18 @@ class MainActivity : ComponentActivity() {
                             "Trip ${tripIndex + 1} Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)}"
                         },
                         modifier = Modifier
-                            .height(80.dp)
-                            .fillMaxWidth()
+                            .height(cardHeight)
+                            .width(cardWidth)
                     )
                 }
             }
-
             SpeedCard(
                 speed = speed,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
-                    .constrainAs(speedCard) {
-                        bottom.linkTo(parent.bottom)
-                    }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(cardHeight)
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter)
             )
         }
     }
