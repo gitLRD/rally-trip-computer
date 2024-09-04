@@ -129,8 +129,8 @@ class MainActivity : ComponentActivity() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(trips.size * 2) { index ->
-                    val tripIndex = index / 2
-                    val isDistance = index % 2 == 0
+                    val tripIndex = index % trips.size
+                    val isDistance = index >= trips.size // Changed condition for isDistance
                     InfoCard(
                         info = if (isDistance) {
                             "Trip ${tripIndex + 1}: ${String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)}"
@@ -153,7 +153,6 @@ class MainActivity : ComponentActivity() {
             )
         }
     }
-
 
     @Composable
     fun InfoCard(info: String, modifier: Modifier = Modifier) {
