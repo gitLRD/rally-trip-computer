@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.constraintlayout.widget.ConstraintLayout
 import java.util.Locale
 
 data class Trip(
@@ -108,20 +109,22 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun InfoGrid(speed: Float, trips: List<Trip>) {
-        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-        val speedCardHeight = screenHeight * 0.3f // 30% of the screen height for the SpeedCard
-        val gridHeight = screenHeight - speedCardHeight // The remaining height for the grid
-
-        Column(
+        ConstraintLayout(
             modifier = Modifier.fillMaxSize()
         ) {
-            // 70% of the screen height for the trip information grid
+            // Create references for the components
+            val (grid, speedCard) = createRefs()
+
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f), // Fill the available space
-                contentPadding = PaddingValues(16.dp),
+                    .constrainAs(grid) {
+                        top.linkTo(parent.top)
+                        bottom.linkTo(speedCard.top)
+                        height = Dimension.preferredWrapContent
+                    }
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -135,25 +138,25 @@ class MainActivity : ComponentActivity() {
                             "Trip ${tripIndex + 1} Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)}"
                         },
                         modifier = Modifier
-                            .height(80.dp) // Fixed height for each card
+                            .height(80.dp)
                             .fillMaxWidth()
                     )
                 }
             }
 
-            // Add a Spacer to control the gap between the grid and the SpeedCard
-            Spacer(modifier = Modifier.height(8.dp)) // Adjust the height as needed
-
-            // 30% of the screen height for the speedometer
             SpeedCard(
                 speed = speed,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(speedCardHeight) // 30% of the screen height
-                    .padding(horizontal = 16.dp, vertical = 8.dp) // Padding inside the card
+                    .height(200.dp)
+                    .constrainAs(speedCard) {
+                        bottom.linkTo(parent.bottom)
+                    }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
     }
+
 
     @Composable
     fun InfoCard(info: String, modifier: Modifier = Modifier) {
