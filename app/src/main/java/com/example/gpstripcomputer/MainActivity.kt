@@ -14,10 +14,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.ActivityResultLauncher
-import androidx.compose.animation.core.copy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.material3.*
@@ -33,7 +31,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.Locale
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.snapshots.SnapshotStateList
 
 data class Trip(
@@ -76,40 +73,29 @@ class MainActivity : ComponentActivity() {
         val trips = remember { mutableStateListOf(Trip(), Trip()) }
         val context = LocalContext.current
 
-        val permissionLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission(),
-            onResult = { isGranted: Boolean ->
-                if (isGranted) {
-                    startTracking(context, trips) { newSpeed ->
-                        speed = newSpeed
-                    }
-                } else {
-                    // Use isDebugMode to decide whether to log or display messages
-                    if (isDebugMode) {
-                        Log.d("Speedometer", "Permission denied")
-                    }
-                    Toast.makeText(context, "Location permission required for speedometer", Toast.LENGTH_SHORT).show()
-                }
-            }
-        )
-
-        LaunchedEffect(Unit) {
-            checkPermissionsAndStartTracking(context, permissionLauncher, trips)
-
-            //Update speed when trips are updated
-            startTracking(context, trips) { newSpeed ->
-                speed = newSpeed
-            }
-        }
-
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            Box(    // Wrap grid in a box to fill entire space
-                modifier = Modifier.fillMaxSize()
-            ) {
-                InfoGrid(speed, trips) // Grid should now fill the screen vertically
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val maxHeight = maxHeight
+                val maxWidth = maxWidth
+
+                Column(modifier = Modifier.fillMaxSize()) {
+                    InfoGrid(
+                        speed = speed,
+                        trips = trips,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    SpeedCard(
+                        speed = speed,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(0.5f)
+                            .padding(16.dp)
+                    )
+                }
             }
         }
     }
@@ -154,55 +140,38 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun InfoGrid(speed: Float, trips: SnapshotStateList<Trip>) {
-        val configuration = LocalConfiguration.current
-        val screenHeight = configuration.screenHeightDp.dp
-        val screenWidth = configuration.screenWidthDp.dp
-        val cardHeight = screenHeight / 3
-        val gridHeight = screenHeight * 2 / 3
-        val cardWidth = screenWidth / 2
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            LazyHorizontalGrid(
-                rows = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(gridHeight),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(trips.size * 2) { index ->
-                    val tripIndex = index % trips.size
-                    val isDistance = index >= trips.size
-                    InfoCard(
-                        infoHeader = "Trip ${tripIndex + 1}",
-                        infoValue = if (isDistance) {
-                            String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)
-                        } else {
-                            String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)
-                        },
-                        infoType = if (isDistance) {
-                            "Distance"
-                        } else {
-                            "Average Speed"
-                        },
-                        onTripReset = { index ->
-                            trips[index] = Trip() // Reset trip data using Trip()
-                        },
-                        modifier = Modifier
-                            .height(cardHeight)
-                            .width(cardWidth)
-                    )
-                }
+    fun InfoGrid(speed: Float, trips: SnapshotStateList<Trip>, modifier: Modifier = Modifier) {
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(2),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(trips.size * 2) { index ->
+                val tripIndex = index % trips.size
+                val isDistance = index >= trips.size
+                InfoCard(
+                    infoHeader = "Trip ${tripIndex + 1}",
+                    infoValue = if (isDistance) {
+                        String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)
+                    } else {
+                        String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)
+                    },
+                    infoType = if (isDistance) {
+                        "Distance"
+                    } else {
+                        "Average Speed"
+                    },
+                    onTripReset = { tripIndex ->
+                        trips[tripIndex] = Trip() // Reset trip data using Trip()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f) // This keeps the grid cells square
+                )
             }
-            SpeedCard(
-                speed = speed,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(cardHeight)
-                    .padding(16.dp)
-                    .align(Alignment.BottomCenter)
-            )
         }
     }
 
