@@ -110,6 +110,34 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    fun InfoCard(infoHeader: String, infoValue: String, infoType: String, modifier: Modifier = Modifier) {
+        Card(modifier = modifier) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = infoHeader,
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = infoValue,
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = infoType,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
+    }
+
+    @Composable
     fun InfoGrid(speed: Float, trips: List<Trip>) {
         val configuration = LocalConfiguration.current
         val screenHeight = configuration.screenHeightDp.dp
@@ -130,12 +158,18 @@ class MainActivity : ComponentActivity() {
             ) {
                 items(trips.size * 2) { index ->
                     val tripIndex = index % trips.size
-                    val isDistance = index >= trips.size // Changed condition for isDistance
+                    val isDistance = index >= trips.size
                     InfoCard(
-                        info = if (isDistance) {
-                            "Trip ${tripIndex + 1}: ${String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)}"
+                        infoHeader = "Trip ${tripIndex + 1}",
+                        infoValue = if (isDistance) {
+                            String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)
                         } else {
-                            "Trip ${tripIndex + 1} Avg Speed: ${String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)}"
+                            String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)
+                        },
+                        infoType = if (isDistance) {
+                            "Distance"
+                        } else {
+                            "Average Speed"
                         },
                         modifier = Modifier
                             .height(cardHeight)
@@ -151,25 +185,6 @@ class MainActivity : ComponentActivity() {
                     .padding(16.dp)
                     .align(Alignment.BottomCenter)
             )
-        }
-    }
-
-    @Composable
-    fun InfoCard(info: String, modifier: Modifier = Modifier) {
-        Card(
-            modifier = modifier,
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Text(
-                    text = info,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
         }
     }
 
