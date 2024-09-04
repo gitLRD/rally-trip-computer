@@ -151,8 +151,7 @@ class MainActivity : ComponentActivity() {
                 rows = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(gridHeight)
-                    .padding(16.dp),
+                    .height(gridHeight),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
