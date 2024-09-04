@@ -14,11 +14,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.ActivityResultLauncher
+import androidx.compose.animation.core.copy
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -27,6 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.Locale
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.snapshots.SnapshotStateList
 
 data class Trip(
     var distance: Float = 0f, // Distance in kilometers
@@ -107,8 +115,19 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun InfoCard(infoHeader: String, infoValue: String, infoType: String, modifier: Modifier = Modifier) {
-        Card(modifier = modifier) {
+    fun InfoCard(
+        infoHeader: String,
+        infoValue: String,
+        infoType: String,
+        onTripReset: (Int) -> Unit,
+        modifier: Modifier = Modifier
+    ) {
+        Card(modifier = modifier.clickable {
+            val tripIndex = infoHeader.substringAfter("Trip ").toIntOrNull() ?: -1
+            if (tripIndex >= 0) {
+                onTripReset(tripIndex - 1) // Adjust index for 0-based list
+            }
+        }) {
             Column(
                 modifier = Modifier
                     .padding(16.dp)
@@ -135,7 +154,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun InfoGrid(speed: Float, trips: List<Trip>) {
+    fun InfoGrid(speed: Float, trips: SnapshotStateList<Trip>) {
         val configuration = LocalConfiguration.current
         val screenHeight = configuration.screenHeightDp.dp
         val screenWidth = configuration.screenWidthDp.dp
@@ -166,6 +185,9 @@ class MainActivity : ComponentActivity() {
                             "Distance"
                         } else {
                             "Average Speed"
+                        },
+                        onTripReset = { index ->
+                            trips[index] = Trip() // Reset trip data using Trip()
                         },
                         modifier = Modifier
                             .height(cardHeight)
@@ -212,7 +234,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkPermissionsAndStartTracking(context: Context, permissionLauncher: ActivityResultLauncher<String>, trips: MutableList<Trip>) {
+    private fun checkPermissionsAndStartTracking(context: Context, permissionLauncher: ActivityResultLauncher<String>, trips: SnapshotStateList<Trip>) {
         // Use isDebugMode within functions
         if (isDebugMode) {
             Log.d("Speedometer", "Checking permissions...")
@@ -228,7 +250,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTracking(context: Context, trips: MutableList<Trip>, onSpeedChange: (Float) -> Unit) {
+    private fun startTracking(context: Context, trips: SnapshotStateList<Trip>, onSpeedChange: (Float) -> Unit) {
         val locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
         var previousLocation: Location? = null
 
@@ -245,10 +267,10 @@ class MainActivity : ComponentActivity() {
                     0f
                 }
 
-                trips.forEachIndexed { index, trip ->
-                    val updatedTrip = trip.copy()
+                for (i in 0 until trips.size) {
+                    val updatedTrip = trips[i].copy()
                     updatedTrip.update(speed, deltaDistance)
-                    trips[index] = updatedTrip // Update specific trip in the MutableList
+                    trips[i] = updatedTrip // Update specific trip in the MutableStateList
                 }
 
                 previousLocation = location
