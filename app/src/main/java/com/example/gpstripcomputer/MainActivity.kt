@@ -85,7 +85,9 @@ class MainActivity : ComponentActivity() {
                     InfoGrid(
                         speed = speed,
                         trips = trips,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
                     )
 
                     SpeedCard(
@@ -141,39 +143,54 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun InfoGrid(speed: Float, trips: SnapshotStateList<Trip>, modifier: Modifier = Modifier) {
-        LazyHorizontalGrid(
-            rows = GridCells.Fixed(2),
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(trips.size * 2) { index ->
-                val tripIndex = index % trips.size
-                val isDistance = index >= trips.size
-                InfoCard(
-                    infoHeader = "Trip ${tripIndex + 1}",
-                    infoValue = if (isDistance) {
-                        String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)
-                    } else {
-                        String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)
-                    },
-                    infoType = if (isDistance) {
-                        "Distance"
-                    } else {
-                        "Average Speed"
-                    },
-                    onTripReset = { tripIndex ->
-                        trips[tripIndex] = Trip() // Reset trip data using Trip()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f) // This keeps the grid cells square
-                )
+        val padding = 8.dp // Define the padding around and between grid items
+        val totalPadding = padding * 2 // Total horizontal and vertical padding (start + end)
+
+        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+            val maxWidth = maxWidth - totalPadding // Subtract padding from total width
+            val maxHeight = maxHeight - totalPadding // Subtract padding from total height
+
+            // Dynamically calculate the cell size based on the available screen width and height
+            val numberOfRows = 2 // Fixed number of rows
+            val cellHeight = maxHeight / numberOfRows
+            val numberOfColumns = trips.size // Number of columns based on trips
+            val cellWidth = maxWidth / numberOfColumns
+
+            LazyHorizontalGrid(
+                rows = GridCells.Fixed(numberOfRows),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(cellHeight * numberOfRows)
+                    .padding(padding), // Apply padding around the grid
+                verticalArrangement = Arrangement.spacedBy(padding),
+                horizontalArrangement = Arrangement.spacedBy(padding)
+            ) {
+                items(trips.size * 2) { index ->
+                    val tripIndex = index % trips.size
+                    val isDistance = index >= trips.size
+                    InfoCard(
+                        infoHeader = "Trip ${tripIndex + 1}",
+                        infoValue = if (isDistance) {
+                            String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)
+                        } else {
+                            String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)
+                        },
+                        infoType = if (isDistance) {
+                            "Distance"
+                        } else {
+                            "Average Speed"
+                        },
+                        onTripReset = { tripIndex ->
+                            trips[tripIndex] = Trip() // Reset trip data using Trip()
+                        },
+                        modifier = Modifier
+                            .size(cellWidth, cellHeight) // Ensure the cells are constrained
+                    )
+                }
             }
         }
     }
+
 
     @Composable
     fun SpeedCard(speed: Float, modifier: Modifier = Modifier) {
