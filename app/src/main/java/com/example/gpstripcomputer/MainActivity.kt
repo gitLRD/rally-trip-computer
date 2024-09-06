@@ -24,7 +24,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -47,11 +46,6 @@ data class Trip(
         speedCount++
     }
 
-    fun reset() {
-        distance = 0f
-        totalSpeed = 0f
-        speedCount = 0
-    }
 }
 
 
@@ -72,6 +66,27 @@ class MainActivity : ComponentActivity() {
         var speed by remember { mutableStateOf(0f) }
         val trips = remember { mutableStateListOf(Trip(), Trip()) }
         val context = LocalContext.current
+
+        // Create a permission launcher to handle permission request result
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { isGranted ->
+                if (isGranted) {
+                    // If permission is granted, start tracking
+                    startTracking(context, trips) { newSpeed ->
+                        speed = newSpeed // Update speed state
+                    }
+                } else {
+                    // Show a message if permission is denied
+                    Toast.makeText(context, "Location permission denied", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+
+        // Check permissions and start tracking when the composable is first composed
+        LaunchedEffect(Unit) {
+            checkPermissionsAndStartTracking(context, permissionLauncher, trips)
+        }
 
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -143,17 +158,16 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun InfoGrid(speed: Float, trips: SnapshotStateList<Trip>, modifier: Modifier = Modifier) {
-        val padding = 8.dp // Define the padding around and between grid items
-        val totalPadding = padding * 2 // Total horizontal and vertical padding (start + end)
+        val padding = 8.dp
+        val totalPadding = padding * 2
 
         BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-            val maxWidth = maxWidth - totalPadding // Subtract padding from total width
-            val maxHeight = maxHeight - totalPadding // Subtract padding from total height
+            val maxWidth = maxWidth - totalPadding
+            val maxHeight = maxHeight - totalPadding
 
-            // Dynamically calculate the cell size based on the available screen width and height
-            val numberOfRows = 2 // Fixed number of rows
+            val numberOfRows = 2
             val cellHeight = maxHeight / numberOfRows
-            val numberOfColumns = trips.size // Number of columns based on trips
+            val numberOfColumns = trips.size
             val cellWidth = maxWidth / numberOfColumns
 
             LazyHorizontalGrid(
@@ -161,11 +175,11 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(cellHeight * numberOfRows)
-                    .padding(padding), // Apply padding around the grid
+                    .padding(padding),
                 verticalArrangement = Arrangement.spacedBy(padding),
                 horizontalArrangement = Arrangement.spacedBy(padding)
             ) {
-                items(trips.size * 2) { index ->
+                items(trips.size * 2, key = { index -> index }) { index ->
                     val tripIndex = index % trips.size
                     val isDistance = index >= trips.size
                     InfoCard(
@@ -173,7 +187,11 @@ class MainActivity : ComponentActivity() {
                         infoValue = if (isDistance) {
                             String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)
                         } else {
-                            String.format(Locale.getDefault(), "%.2f km/h", trips[tripIndex].averageSpeed)
+                            String.format(
+                                Locale.getDefault(),
+                                "%.2f km/h",
+                                trips[tripIndex].averageSpeed
+                            )
                         },
                         infoType = if (isDistance) {
                             "Distance"
@@ -184,7 +202,7 @@ class MainActivity : ComponentActivity() {
                             trips[tripIndex] = Trip() // Reset trip data using Trip()
                         },
                         modifier = Modifier
-                            .size(cellWidth, cellHeight) // Ensure the cells are constrained
+                            .size(cellWidth, cellHeight)
                     )
                 }
             }
@@ -220,14 +238,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkPermissionsAndStartTracking(context: Context, permissionLauncher: ActivityResultLauncher<String>, trips: SnapshotStateList<Trip>) {
+    private fun checkPermissionsAndStartTracking(
+        context: Context,
+        permissionLauncher: ActivityResultLauncher<String>,
+        trips: SnapshotStateList<Trip>
+    ) {
         // Use isDebugMode within functions
         if (isDebugMode) {
             Log.d("Speedometer", "Checking permissions...")
         }
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
             startTracking(context, trips) { speed ->
@@ -236,8 +259,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTracking(context: Context, trips: SnapshotStateList<Trip>, onSpeedChange: (Float) -> Unit) {
-        val locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
+    private fun startTracking(
+        context: Context,
+        trips: SnapshotStateList<Trip>,
+        onSpeedChange: (Float) -> Unit
+    ) {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         var previousLocation: Location? = null
 
         val locationListener = object : LocationListener {
@@ -247,33 +274,36 @@ class MainActivity : ComponentActivity() {
 
                 val lastLocation = previousLocation
                 val deltaDistance = if (lastLocation != null) {
-                    val distance = location.distanceTo(lastLocation) / 1000 // convert meters to km
-                    distance
+                    location.distanceTo(lastLocation) / 1000 // Convert meters to km
                 } else {
                     0f
                 }
 
-                for (i in 0 until trips.size) {
+                for (i in trips.indices) {
                     val updatedTrip = trips[i].copy()
                     updatedTrip.update(speed, deltaDistance)
-                    trips[i] = updatedTrip // Update specific trip in the MutableStateList
+                    trips[i] = updatedTrip // This should trigger recomposition
                 }
 
                 previousLocation = location
-
-                if (isDebugMode) {
-                    Log.d("TripComputer", "Location updated: Speed = $speed km/h, Distance = $deltaDistance km")
-                }
             }
 
-            @Deprecated("Deprecated in Java")
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
             override fun onProviderEnabled(provider: String) {}
             override fun onProviderDisabled(provider: String) {}
         }
 
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0f, locationListener)
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                0,
+                0f,
+                locationListener
+            )
         }
     }
 }
