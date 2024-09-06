@@ -46,11 +46,6 @@ data class Trip(
         speedCount++
     }
 
-    fun reset() {
-        distance = 0f
-        totalSpeed = 0f
-        speedCount = 0
-    }
 }
 
 
