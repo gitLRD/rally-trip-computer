@@ -268,7 +268,7 @@ class MainActivity : ComponentActivity() {
             override fun onLocationChanged(location: Location) {
                 val speed = (location.speed * 3600) / 1000 // Convert from m/s to km/h
 
-                onSpeedChange(speed)  // Make sure this is called with correct speed value
+                onSpeedChange(speed)  // This will recompose the SpeedCard
 
                 // Update trips if necessary (for distance tracking)
                 val lastLocation = previousLocation
