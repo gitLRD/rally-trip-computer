@@ -72,50 +72,46 @@ class MainActivity : ComponentActivity() {
             contract = ActivityResultContracts.RequestPermission(),
             onResult = { isGranted ->
                 if (isGranted) {
-                    // If permission is granted, start tracking
+                    // Start tracking location if permission is granted
                     startTracking(context, trips) { newSpeed ->
                         speed = newSpeed // Update speed state
                     }
                 } else {
-                    // Show a message if permission is denied
                     Toast.makeText(context, "Location permission denied", Toast.LENGTH_SHORT).show()
                 }
             }
         )
 
-        // Check permissions and start tracking when the composable is first composed
         LaunchedEffect(Unit) {
-            checkPermissionsAndStartTracking(context, permissionLauncher, trips)
+            checkPermissionsAndStartTracking(context, permissionLauncher, trips) { newSpeed ->
+                speed = newSpeed // This is critical: ensure it properly updates the speed state
+            }
         }
 
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val maxHeight = maxHeight
-                val maxWidth = maxWidth
+            Column(modifier = Modifier.fillMaxSize()) {
+                InfoGrid(
+                    speed = speed,  // Make sure speed is passed down
+                    trips = trips,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
 
-                Column(modifier = Modifier.fillMaxSize()) {
-                    InfoGrid(
-                        speed = speed,
-                        trips = trips,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                    )
-
-                    SpeedCard(
-                        speed = speed,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(0.5f)
-                            .padding(16.dp)
-                    )
-                }
+                SpeedCard(
+                    speed = speed,  // Speed should update this component
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.5f)
+                        .padding(16.dp)
+                )
             }
         }
     }
+
 
     @Composable
     fun InfoCard(
@@ -212,6 +208,9 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun SpeedCard(speed: Float, modifier: Modifier = Modifier) {
+        // Log to see if the SpeedCard is being recomposed
+        Log.d("Speedometer", "SpeedCard recomposed with speed: $speed")
+
         Card(
             modifier = modifier,
             elevation = CardDefaults.cardElevation(8.dp)
@@ -241,9 +240,9 @@ class MainActivity : ComponentActivity() {
     private fun checkPermissionsAndStartTracking(
         context: Context,
         permissionLauncher: ActivityResultLauncher<String>,
-        trips: SnapshotStateList<Trip>
+        trips: SnapshotStateList<Trip>,
+        onSpeedChange: (Float) -> Unit // This should be the proper type
     ) {
-        // Use isDebugMode within functions
         if (isDebugMode) {
             Log.d("Speedometer", "Checking permissions...")
         }
@@ -253,9 +252,7 @@ class MainActivity : ComponentActivity() {
         ) {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
-            startTracking(context, trips) { speed ->
-                // Update UI with new speed
-            }
+            startTracking(context, trips, onSpeedChange) // Ensure speed is updated in the callback
         }
     }
 
@@ -270,8 +267,10 @@ class MainActivity : ComponentActivity() {
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 val speed = (location.speed * 3600) / 1000 // Convert from m/s to km/h
-                onSpeedChange(speed) // Update the speed value
 
+                onSpeedChange(speed)  // Make sure this is called with correct speed value
+
+                // Update trips if necessary (for distance tracking)
                 val lastLocation = previousLocation
                 val deltaDistance = if (lastLocation != null) {
                     location.distanceTo(lastLocation) / 1000 // Convert meters to km
@@ -282,7 +281,7 @@ class MainActivity : ComponentActivity() {
                 for (i in trips.indices) {
                     val updatedTrip = trips[i].copy()
                     updatedTrip.update(speed, deltaDistance)
-                    trips[i] = updatedTrip // This should trigger recomposition
+                    trips[i] = updatedTrip
                 }
 
                 previousLocation = location
