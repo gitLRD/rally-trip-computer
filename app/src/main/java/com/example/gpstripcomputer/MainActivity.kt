@@ -18,6 +18,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -31,6 +33,12 @@ import androidx.core.content.ContextCompat
 import java.util.Locale
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
+import kotlinx.coroutines.launch
 
 data class Trip(
     var distance: Float = 0f, // Distance in kilometers
@@ -61,57 +69,95 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SpeedometerApp() {
         var speed by remember { mutableStateOf(0f) }
+        var isDarkTheme by remember { mutableStateOf(false) }  // New: Track theme state
         val trips = remember { mutableStateListOf(Trip(), Trip()) }
         val context = LocalContext.current
 
-        // Create a permission launcher to handle permission request result
-        val permissionLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission(),
-            onResult = { isGranted ->
-                if (isGranted) {
-                    // Start tracking location if permission is granted
-                    startTracking(context, trips) { newSpeed ->
-                        speed = newSpeed // Update speed state
-                    }
-                } else {
-                    Toast.makeText(context, "Location permission denied", Toast.LENGTH_SHORT).show()
-                }
-            }
-        )
+        val drawerState = rememberDrawerState(DrawerValue.Closed) // New: Manage drawer state
+        val scope = rememberCoroutineScope() // New: Coroutine scope for drawer
 
-        LaunchedEffect(Unit) {
-            checkPermissionsAndStartTracking(context, permissionLauncher, trips) { newSpeed ->
-                speed = newSpeed // This is critical: ensure it properly updates the speed state
-            }
-        }
-
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+        MaterialTheme(
+            colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme() // New: Apply dark/light theme
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                InfoGrid(
-                    speed = speed,  // Make sure speed is passed down
-                    trips = trips,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                )
+            // Drawer with scaffold wrapping the content
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = drawerState.isOpen,
+                drawerContent = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize() // Ensure it fills the entire drawer
+                            .background(MaterialTheme.colorScheme.surface) // Background color
+                            .padding(0.dp) // Remove any padding if added previously
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize() // Ensure Column fills the Box
+                                .padding(16.dp) // Apply padding within the Column
+                        ) {
+                            Text(text = "Settings", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                SpeedCard(
-                    speed = speed,  // Speed should update this component
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(0.5f)
-                        .padding(16.dp)
+                            // Theme toggle button inside the drawer
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                                    contentDescription = "Theme Icon"
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isDarkTheme) "Light Theme" else "Dark Theme",
+                                    modifier = Modifier.clickable {
+                                        isDarkTheme = !isDarkTheme // Toggle theme state
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            ) {
+                Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = { Text(text = "Speedometer") },
+                            navigationIcon = {
+                                IconButton(onClick = {
+                                    scope.launch {
+                                        drawerState.open() // Open the drawer when the icon is clicked
+                                    }
+                                }) {
+                                    Icon(Icons.Default.Menu, contentDescription = "Menu Icon") // Hamburger icon
+                                }
+                            }
+                        )
+                    },
+                    content = {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            InfoGrid(
+                                speed = speed,
+                                trips = trips,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                            )
+
+                            SpeedCard(
+                                speed = speed,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(0.5f)
+                                    .padding(16.dp)
+                            )
+                        }
+                    }
                 )
             }
         }
     }
-
 
     @Composable
     fun InfoCard(
