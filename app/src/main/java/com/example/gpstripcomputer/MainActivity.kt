@@ -9,8 +9,10 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +40,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -46,6 +51,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -78,6 +85,13 @@ data class Trip(
 
 }
 
+// Data class for navigation drawer items
+data class NavigationDrawerItem(
+    val title: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector,
+    val badgeCount: Int? = null
+)
 
 class MainActivity : ComponentActivity() {
 
@@ -95,47 +109,84 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun SpeedometerApp() {
         var speed by remember { mutableStateOf(0f) }
-        var isDarkTheme by remember { mutableStateOf(false) }  // New: Track theme state
+        var isDarkTheme by remember { mutableStateOf(false) }
         val trips = remember { mutableStateListOf(Trip(), Trip()) }
         val context = LocalContext.current
+        val drawerState = rememberDrawerState(DrawerValue.Closed)
+        val scope = rememberCoroutineScope()
+        var selectedItemIndex by remember { mutableStateOf(0) } // Track selected item
 
-        val drawerState = rememberDrawerState(DrawerValue.Closed) // New: Manage drawer state
-        val scope = rememberCoroutineScope() // New: Coroutine scope for drawer
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                startTracking(context, trips) { newSpeed -> speed = newSpeed }
+            } else {
+                if (isDebugMode) {
+                    Log.d("Speedometer", "Permission denied")
+                }
+            }
+        }
 
-        MaterialTheme(
-            colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme() // New: Apply dark/light theme
-        ) {
-            // Drawer with scaffold wrapping the content
+        LaunchedEffect(Unit) {
+            checkPermissionsAndStartTracking(context, permissionLauncher, trips) { newSpeed ->
+                speed = newSpeed
+            }
+        }
+
+        // Define your drawer items
+        val items = listOf(
+            NavigationDrawerItem(
+                title = "Toggle Theme",
+                selectedIcon = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                unselectedIcon = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                badgeCount = null
+            )
+            // Add more items as needed
+        )
+
+        MaterialTheme(colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()) {
             ModalNavigationDrawer(
                 drawerState = drawerState,
                 gesturesEnabled = drawerState.isOpen,
                 drawerContent = {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize() // Ensure it fills the entire drawer
-                            .background(MaterialTheme.colorScheme.surface) // Background color
-                            .padding(0.dp) // Remove any padding if added previously
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize() // Ensure Column fills the Box
-                                .padding(16.dp) // Apply padding within the Column
-                        ) {
-                            Text(text = "Settings", style = MaterialTheme.typography.titleMedium)
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Theme toggle button inside the drawer
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                                    contentDescription = "Theme Icon"
+                    ModalDrawerSheet {
+                        Spacer(Modifier.height(12.dp))
+                        items.forEachIndexed { index, item ->
+                            if (item.title == "Toggle Theme") {
+                                NavigationDrawerItem(
+                                    label = { Text(item.title) },
+                                    selected = false, // Theme toggle is not selectable
+                                    onClick = {
+                                        isDarkTheme = !isDarkTheme
+                                        scope.launch { drawerState.close() }
+                                    },
+                                    icon = {
+                                        Icon(
+                                            imageVector = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                                            contentDescription = item.title
+                                        )
+                                    },
+                                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isDarkTheme) "Light Theme" else "Dark Theme",
-                                    modifier = Modifier.clickable {
-                                        isDarkTheme = !isDarkTheme // Toggle theme state
-                                    }
+                            } else {
+                                NavigationDrawerItem(
+                                    label = { Text(item.title) },
+                                    selected = index == selectedItemIndex,
+                                    onClick = {
+                                        selectedItemIndex = index
+                                        scope.launch { drawerState.close() }
+                                    },
+                                    icon = {
+                                        Icon(
+                                            imageVector = if (index == selectedItemIndex) item.selectedIcon else item.unselectedIcon,
+                                            contentDescription = item.title
+                                        )
+                                    },
+                                    badge = {
+                                        item.badgeCount?.let { Text(it.toString()) }
+                                    },
+                                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                                 )
                             }
                         }
@@ -147,12 +198,8 @@ class MainActivity : ComponentActivity() {
                         TopAppBar(
                             title = { Text(text = "Speedometer") },
                             navigationIcon = {
-                                IconButton(onClick = {
-                                    scope.launch {
-                                        drawerState.open() // Open the drawer when the icon is clicked
-                                    }
-                                }) {
-                                    Icon(Icons.Default.Menu, contentDescription = "Menu Icon") // Hamburger icon
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(Icons.Default.Menu, contentDescription = "Menu Icon")
                                 }
                             }
                         )
