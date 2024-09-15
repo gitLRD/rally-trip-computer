@@ -7,6 +7,8 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -15,6 +17,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -51,6 +54,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -66,6 +70,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.not
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -109,7 +114,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun SpeedometerApp() {
         var speed by remember { mutableStateOf(0f) }
-        var isDarkTheme by remember { mutableStateOf(false) }
+        val isAlreadyDark = isSystemInDarkTheme()
+        var isDarkTheme by remember { mutableStateOf(isAlreadyDark) }
         val trips = remember { mutableStateListOf(Trip(), Trip()) }
         val context = LocalContext.current
         val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -140,7 +146,6 @@ class MainActivity : ComponentActivity() {
                 title = "Toggle Theme",
                 selectedIcon = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
                 unselectedIcon = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                badgeCount = null
             )
             // Add more items as needed
         )
@@ -153,7 +158,7 @@ class MainActivity : ComponentActivity() {
                     ModalDrawerSheet {
                         Spacer(Modifier.height(12.dp))
                         items.forEachIndexed { index, item ->
-                            if (item.title == "Toggle Theme") {
+                            if (index == 0) { // Check if it's the first item (Toggle Theme)
                                 NavigationDrawerItem(
                                     label = { Text(item.title) },
                                     selected = false, // Theme toggle is not selectable
@@ -182,9 +187,6 @@ class MainActivity : ComponentActivity() {
                                             imageVector = if (index == selectedItemIndex) item.selectedIcon else item.unselectedIcon,
                                             contentDescription = item.title
                                         )
-                                    },
-                                    badge = {
-                                        item.badgeCount?.let { Text(it.toString()) }
                                     },
                                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                                 )
