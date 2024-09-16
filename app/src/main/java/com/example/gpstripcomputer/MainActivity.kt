@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
@@ -47,6 +48,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -110,6 +112,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val sharedPrefs by lazy { getSharedPreferences("settings", Context.MODE_PRIVATE) }
+
+    // Function to get the unit preference
+    private fun getUnitPreference(): String {
+        return sharedPrefs.getString("units", "metric") ?: "metric" // Default to metric
+    }
+
+    // Function to set the unit preference
+    private fun setUnitPreference(units: String) {
+        with(sharedPrefs.edit()) {
+            putString("units", units)
+            apply()
+        }
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SpeedometerApp() {
@@ -146,8 +163,12 @@ class MainActivity : ComponentActivity() {
                 title = "Toggle Theme",
                 selectedIcon = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
                 unselectedIcon = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+            ),
+            NavigationDrawerItem(
+                title = "Units",
+                selectedIcon = Icons.Filled.Settings, // Or a more appropriate icon
+                unselectedIcon = Icons.Filled.Settings
             )
-            // Add more items as needed
         )
 
         MaterialTheme(colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()) {
@@ -158,7 +179,7 @@ class MainActivity : ComponentActivity() {
                     ModalDrawerSheet {
                         Spacer(Modifier.height(12.dp))
                         items.forEachIndexed { index, item ->
-                            if (index == 0) { // Check if it's the first item (Toggle Theme)
+                            if (item.title == "Toggle Theme") { // Check if it's the first item (Toggle Theme)
                                 NavigationDrawerItem(
                                     label = { Text(item.title) },
                                     selected = false, // Theme toggle is not selectable
@@ -174,6 +195,11 @@ class MainActivity : ComponentActivity() {
                                     },
                                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                                 )
+                            } else if (item.title == "Units") {
+                                UnitSetting { newUnits ->
+                                    setUnitPreference(newUnits)
+                                    // Might need to trigger recomposition or recalculate values here
+                                }
                             } else {
                                 NavigationDrawerItem(
                                     label = { Text(item.title) },
@@ -350,6 +376,43 @@ class MainActivity : ComponentActivity() {
                     style = MaterialTheme.typography.headlineLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+            }
+        }
+    }
+
+    @Composable
+    fun UnitSetting(onUnitChange: (String) -> Unit) {
+        var selectedUnit by remember { mutableStateOf(getUnitPreference()) }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Units", style = MaterialTheme.typography.bodyLarge)
+
+            Row {
+                RadioButton(
+                    selected = selectedUnit == "metric",
+                    onClick = {
+                        selectedUnit = "metric"
+                        onUnitChange(selectedUnit)
+                    }
+                )
+                Text("Metric", style = MaterialTheme.typography.bodyMedium)
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                RadioButton(
+                    selected = selectedUnit == "imperial",
+                    onClick = {
+                        selectedUnit = "imperial"
+                        onUnitChange(selectedUnit)
+                    }
+                )
+                Text("Imperial", style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
