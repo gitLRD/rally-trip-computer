@@ -100,6 +100,30 @@ data class NavigationDrawerItem(
     val badgeCount: Int? = null
 )
 
+enum class SpeedUnit {
+    KILOMETERS_PER_HOUR,
+    MILES_PER_HOUR;
+
+    fun unitAbbreviation(): String {
+        return when (this) {
+            KILOMETERS_PER_HOUR -> "km/h"
+            MILES_PER_HOUR -> "mph"
+        }
+    }
+}
+
+enum class DistanceUnit {
+    KILOMETERS,
+    MILES;
+
+    fun unitAbbreviation(): String {
+        return when (this) {
+            KILOMETERS -> "km"
+            MILES -> "mi"
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
 
     // Define a class-level boolean variable for debug mode
@@ -124,6 +148,22 @@ class MainActivity : ComponentActivity() {
         with(sharedPrefs.edit()) {
             putString("units", units)
             apply()
+        }
+    }
+
+    private fun convertSpeed(speed: Float, fromUnit: SpeedUnit, toUnit: SpeedUnit): Float {
+        return when {
+            fromUnit == toUnit -> speed
+            fromUnit == SpeedUnit.KILOMETERS_PER_HOUR && toUnit == SpeedUnit.MILES_PER_HOUR -> speed * 0.621371f
+            else -> speed * 1.60934f
+        }
+    }
+
+    private fun convertDistance(distance: Float, fromUnit: DistanceUnit, toUnit: DistanceUnit): Float {
+        return when {
+            fromUnit == toUnit -> distance
+            fromUnit == DistanceUnit.KILOMETERS && toUnit == DistanceUnit.MILES -> distance * 0.621371f
+            else -> distance * 1.60934f
         }
     }
 
@@ -321,10 +361,16 @@ class MainActivity : ComponentActivity() {
                 items(trips.size * 2, key = { index -> index }) { index ->
                     val tripIndex = index % trips.size
                     val isDistance = index >= trips.size
+
+                    val distanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
+                    val fromDistanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
+                    val toDistanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
+
                     InfoCard(
                         infoHeader = "Trip ${tripIndex + 1}",
                         infoValue = if (isDistance) {
-                            String.format(Locale.getDefault(), "%.2f km", trips[tripIndex].distance)
+                            val convertedDistance = convertDistance(trips[tripIndex].distance, fromDistanceUnit, toDistanceUnit)
+                            String.format(Locale.getDefault(), "%.2f ${distanceUnit.unitAbbreviation()}", convertedDistance)
                         } else {
                             String.format(
                                 Locale.getDefault(),
@@ -345,7 +391,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
-        }
+            }
     }
 
 
@@ -353,6 +399,20 @@ class MainActivity : ComponentActivity() {
     fun SpeedCard(speed: Float, modifier: Modifier = Modifier) {
         // Log to see if the SpeedCard is being recomposed
         Log.d("Speedometer", "SpeedCard recomposed with speed: $speed")
+
+        val speedUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
+        val convertedSpeed = convertSpeed(speed, SpeedUnit.KILOMETERS_PER_HOUR, speedUnit)
+
+        val speedUnitEnum = when (getUnitPreference()) { // Define speedUnitEnum here
+            "metric" -> SpeedUnit.KILOMETERS_PER_HOUR
+            "imperial" -> SpeedUnit.MILES_PER_HOUR
+            else -> SpeedUnit.KILOMETERS_PER_HOUR // Default to metric
+        }
+
+        /*val distanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
+        val fromDistanceUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
+        val toDistanceUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
+        val convertedDistance = convertDistance(speed, DistanceUnit.KILOMETERS, DistanceUnit.MILES)*/
 
         Card(
             modifier = modifier,
@@ -372,7 +432,7 @@ class MainActivity : ComponentActivity() {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = String.format(Locale.getDefault(), "%.2f km/h", speed),
+                    text = String.format(Locale.getDefault(), "%.2f ${speedUnitEnum.unitAbbreviation()}", convertedSpeed),
                     style = MaterialTheme.typography.headlineLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
