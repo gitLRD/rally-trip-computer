@@ -372,11 +372,9 @@ class MainActivity : ComponentActivity() {
                             val convertedDistance = convertDistance(trips[tripIndex].distance, fromDistanceUnit, toDistanceUnit)
                             String.format(Locale.getDefault(), "%.2f ${distanceUnit.unitAbbreviation()}", convertedDistance)
                         } else {
-                            String.format(
-                                Locale.getDefault(),
-                                "%.2f km/h",
-                                trips[tripIndex].averageSpeed
-                            )
+                            val speedUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
+                            val convertedSpeed = convertSpeed(trips[tripIndex].averageSpeed, SpeedUnit.KILOMETERS_PER_HOUR, speedUnit) // Convert average speed
+                            String.format(Locale.getDefault(), "%.2f ${speedUnit.unitAbbreviation()}", convertedSpeed) // Use converted speed and correct unit
                         },
                         infoType = if (isDistance) {
                             "Distance"
