@@ -330,7 +330,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun InfoGrid(trips: SnapshotStateList<Trip>, modifier: Modifier = Modifier) {
+    fun InfoGrid(speed: Float, trips: SnapshotStateList<Trip>, modifier: Modifier = Modifier) {
         val padding = 8.dp
         val totalPadding = padding * 2
 
