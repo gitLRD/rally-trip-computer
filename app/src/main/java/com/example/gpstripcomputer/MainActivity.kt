@@ -274,8 +274,11 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     },
-                    content = {
-                        Column(modifier = Modifier.fillMaxSize()) {
+                    content = { paddingValues ->
+                        Column(modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                        ) {
                             InfoGrid(
                                 speed = speed,
                                 trips = trips,
@@ -289,7 +292,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(0.5f)
-                                    .padding(16.dp)
+                                    .padding(4.dp)
                             )
                         }
                     }
@@ -391,7 +394,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
-            }
+        }
     }
 
 
@@ -408,11 +411,6 @@ class MainActivity : ComponentActivity() {
             "imperial" -> SpeedUnit.MILES_PER_HOUR
             else -> SpeedUnit.KILOMETERS_PER_HOUR // Default to metric
         }
-
-        /*val distanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
-        val fromDistanceUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
-        val toDistanceUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
-        val convertedDistance = convertDistance(speed, DistanceUnit.KILOMETERS, DistanceUnit.MILES)*/
 
         Card(
             modifier = modifier,
