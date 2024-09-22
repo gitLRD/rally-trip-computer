@@ -81,13 +81,13 @@ class ExampleInstrumentedTest {
             val mainActivity = MainActivity()
 
             mainActivity.setUnitPreference("imperial")
-            Thread.sleep(100) // Introduce a delay of 100 milliseconds
-            val retrievedUnits = mainActivity.getDistanceUnit("imperial")
+            Thread.sleep(100)
+            val retrievedUnits = mainActivity.getDistanceUnit("imperial", context) // Pass context here
             assertEquals(DistanceUnit.MILES, retrievedUnits)
 
             mainActivity.setUnitPreference("metric")
-            Thread.sleep(100) // Introduce a delay of 100 milliseconds
-            val retrievedUnits2 = mainActivity.getDistanceUnit("metric")
+            Thread.sleep(100)
+            val retrievedUnits2 = mainActivity.getDistanceUnit("metric", context) // Pass context here
             assertEquals(DistanceUnit.KILOMETERS, retrievedUnits2)
         }
     }

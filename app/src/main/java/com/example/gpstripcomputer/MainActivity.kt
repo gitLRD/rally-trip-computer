@@ -2,6 +2,7 @@ package com.example.gpstripcomputer
 
 import android.Manifest
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
@@ -123,14 +124,15 @@ class MainActivity : ComponentActivity() {
     // Define a class-level boolean variable for debug mode
     private var isDebugMode: Boolean = true
 
+    private lateinit var sharedPrefs: SharedPreferences // Declare sharedPrefs
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        sharedPrefs = getSharedPreferences("settings", Context.MODE_PRIVATE) // Initialize here
         setContent {
             SpeedometerApp()
         }
     }
-
-    private val sharedPrefs by lazy { getSharedPreferences("settings", Context.MODE_PRIVATE) }
 
     // Function to get the unit preference
     private fun getUnitPreference(): String {
@@ -138,14 +140,20 @@ class MainActivity : ComponentActivity() {
     }
 
     // Function to set the unit preference
-    private fun setUnitPreference(units: String) {
+    fun setUnitPreference(units: String) {
         with(sharedPrefs.edit()) {
             putString("units", units)
             apply()
         }
     }
 
-    private fun convertSpeed(speed: Float, fromUnit: SpeedUnit, toUnit: SpeedUnit): Float {
+    fun getDistanceUnit(units: String, context: Context): DistanceUnit {
+        val sharedPrefs = context.getSharedPreferences("unit_prefs", Context.MODE_PRIVATE)
+        val unitPreference = sharedPrefs.getString("units", "metric")
+        return if (unitPreference == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
+    }
+
+    fun convertSpeed(speed: Float, fromUnit: SpeedUnit, toUnit: SpeedUnit): Float {
         return when {
             fromUnit == toUnit -> speed
             fromUnit == SpeedUnit.KILOMETERS_PER_HOUR && toUnit == SpeedUnit.MILES_PER_HOUR -> speed * 0.621371f
@@ -153,7 +161,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun convertDistance(distance: Float, fromUnit: DistanceUnit, toUnit: DistanceUnit): Float {
+    fun convertDistance(distance: Float, fromUnit: DistanceUnit, toUnit: DistanceUnit): Float {
         return when {
             fromUnit == toUnit -> distance
             fromUnit == DistanceUnit.KILOMETERS && toUnit == DistanceUnit.MILES -> distance * 0.621371f
