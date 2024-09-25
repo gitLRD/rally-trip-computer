@@ -40,10 +40,10 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -220,45 +220,33 @@ class MainActivity : ComponentActivity() {
                 drawerContent = {
                     ModalDrawerSheet {
                         Spacer(Modifier.height(12.dp))
-                        items.forEachIndexed { index, item ->
-                            if (item.title == "Toggle Theme") { // Check if it's the first item (Toggle Theme)
-                                NavigationDrawerItem(
-                                    label = { Text(item.title) },
-                                    selected = false, // Theme toggle is not selectable
-                                    onClick = {
-                                        isDarkTheme = !isDarkTheme
-                                        scope.launch { drawerState.close() }
-                                    },
-                                    icon = {
-                                        Icon(
-                                            imageVector = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                                            contentDescription = item.title
-                                        )
-                                    },
-                                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                                )
-                            } else if (item.title == "Units") {
-                                UnitSetting { newUnits ->
-                                    setUnitPreference(newUnits)
-                                    // Might need to trigger recomposition or recalculate values here
-                                }
-                            } else {
-                                NavigationDrawerItem(
-                                    label = { Text(item.title) },
-                                    selected = index == selectedItemIndex,
-                                    onClick = {
-                                        selectedItemIndex = index
-                                        scope.launch { drawerState.close() }
-                                    },
-                                    icon = {
-                                        Icon(
-                                            imageVector = if (index == selectedItemIndex) item.selectedIcon else item.unselectedIcon,
-                                            contentDescription = item.title
-                                        )
-                                    },
-                                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+
+                        // Theme toggle
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(NavigationDrawerItemDefaults.ItemPadding),
+                            horizontalArrangement = Arrangement.SpaceBetween, // Or Arrangement.Start
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Theme", modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            IconToggleButton(
+                                checked = isDarkTheme,
+                                onCheckedChange = { isDarkTheme = it },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                                    contentDescription = if (isDarkTheme) "Light Mode" else "Dark Mode"
                                 )
                             }
+                            Spacer(Modifier.weight(1.3f)) // Add Spacer after the toggle
+                        }
+
+                        // Units setting
+                        UnitSetting { newUnits ->
+                            setUnitPreference(newUnits)
                         }
                     }
                 }
