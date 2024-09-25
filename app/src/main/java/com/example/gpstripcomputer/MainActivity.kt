@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
@@ -47,6 +48,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
@@ -226,22 +228,25 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(NavigationDrawerItemDefaults.ItemPadding),
-                            horizontalArrangement = Arrangement.SpaceBetween, // Or Arrangement.Start
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Theme", modifier = Modifier.weight(1f))
                             Spacer(Modifier.width(8.dp))
-                            IconToggleButton(
+
+                            Switch(
                                 checked = isDarkTheme,
                                 onCheckedChange = { isDarkTheme = it },
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                                    contentDescription = if (isDarkTheme) "Light Mode" else "Dark Mode"
-                                )
-                            }
-                            Spacer(Modifier.weight(1.3f)) // Add Spacer after the toggle
+                                thumbContent = {
+                                    Icon(
+                                        imageVector = if (isDarkTheme) Icons.Filled.DarkMode else Icons.Filled.LightMode,
+                                        contentDescription = if (isDarkTheme) "Dark Mode" else "Light Mode",
+                                        modifier = Modifier.size(ButtonDefaults.IconSize)
+                                    )
+                                }
+                            )
+
+                            Spacer(Modifier.weight(1.25f))
                         }
 
                         // Units setting
