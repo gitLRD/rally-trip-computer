@@ -74,7 +74,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 data class Trip(
-    var distance: Float = 0f, // Distance in kilometers
+    var distanceInMeters: Float = 0f, // Distance in meters
     var totalSpeed: Float = 0f, // Cumulative speed for average calculation
     var speedCount: Int = 0 // Number of speed readings
 ) {
@@ -82,7 +82,7 @@ data class Trip(
         get() = if (speedCount > 0) totalSpeed / speedCount else 0f
 
     fun update(speed: Float, deltaDistance: Float) {
-        distance += deltaDistance
+        distanceInMeters += deltaDistance
         totalSpeed += speed
         speedCount++
     }
@@ -164,11 +164,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun convertDistance(distance: Float, fromUnit: DistanceUnit, toUnit: DistanceUnit): Float {
-        return when {
-            fromUnit == toUnit -> distance
-            fromUnit == DistanceUnit.KILOMETERS && toUnit == DistanceUnit.MILES -> distance * 0.621371f
-            else -> distance * 1.60934f
+    fun convertDistance(distanceInMeters: Float, fromUnit: DistanceUnit, toUnit: DistanceUnit): Float {
+        return when (fromUnit) {
+            DistanceUnit.KILOMETERS -> distanceInMeters / 1000.0f
+            DistanceUnit.MILES -> distanceInMeters / 1609.34f
+            else -> distanceInMeters // Default to meters if unit is unknown
         }
     }
 
@@ -363,12 +363,12 @@ class MainActivity : ComponentActivity() {
 
                     val distanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
                     val fromDistanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
-                    val toDistanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
+                    val toDistanceUnit = if (getUnitPreference() != "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
 
                     InfoCard(
                         infoHeader = "Trip ${tripIndex + 1}",
                         infoValue = if (isDistance) {
-                            val convertedDistance = convertDistance(trips[tripIndex].distance, fromDistanceUnit, toDistanceUnit)
+                            val convertedDistance = convertDistance(trips[tripIndex].distanceInMeters, fromDistanceUnit, toDistanceUnit)
                             String.format(Locale.getDefault(), "%.2f ${distanceUnit.unitAbbreviation()}", convertedDistance)
                         } else {
                             val speedUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
@@ -505,7 +505,7 @@ class MainActivity : ComponentActivity() {
                 // Update trips if necessary (for distance tracking)
                 val lastLocation = previousLocation
                 val deltaDistance = if (lastLocation != null) {
-                    location.distanceTo(lastLocation) / 1000 // Convert meters to km
+                    location.distanceTo(lastLocation) // Record distance in meters
                 } else {
                     0f
                 }
