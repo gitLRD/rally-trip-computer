@@ -31,10 +31,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -125,8 +125,8 @@ class MainActivity : ComponentActivity() {
 
     // Define a class-level boolean variable for debug mode
     private var isDebugMode: Boolean = true
-
     private lateinit var sharedPrefs: SharedPreferences // Declare sharedPrefs
+    var showHelpDialog by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -202,20 +202,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Define your drawer items
-        val items = listOf(
-            NavigationDrawerItem(
-                title = "Toggle Theme",
-                selectedIcon = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                unselectedIcon = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-            ),
-            NavigationDrawerItem(
-                title = "Units",
-                selectedIcon = Icons.Filled.Settings, // Or a more appropriate icon
-                unselectedIcon = Icons.Filled.Settings
-            )
-        )
-
         MaterialTheme(colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()) {
             ModalNavigationDrawer(
                 drawerState = drawerState,
@@ -254,6 +240,28 @@ class MainActivity : ComponentActivity() {
                         UnitSetting { newUnits ->
                             setUnitPreference(newUnits)
                         }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                                .clickable { showHelpDialog = true },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // A fixed-size Box around the text to prevent it from stretching unnecessarily
+                            Text("Help")
+
+                            // No weight on the icon, so it stays next to the text
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Help,
+                                contentDescription = "Help",
+                                modifier = Modifier.size(ButtonDefaults.IconSize)
+                            )
+                            Spacer(Modifier.width(70.dp))
+                        }
+
+                        Spacer(Modifier.height(16.dp))
                     }
                 }
             ) {
@@ -291,8 +299,32 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
+                if (showHelpDialog) {
+                    ShowHelpDialog(onDismiss = { showHelpDialog = false })
+                }
             }
         }
+    }
+
+    @Composable
+    fun HelperDialogHelper() {
+        // Here because it's 
+    }
+
+    @Composable
+    fun ShowHelpDialog(onDismiss: () -> Unit) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Help") },
+            text = { Text("This app gives two trip computers and an instant speed reading. \n\n Each trip computer can be used to track speed and distance, and can be reset by tapping one of their squares.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { onDismiss() }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
     }
 
     @Composable
