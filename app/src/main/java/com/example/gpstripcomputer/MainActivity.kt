@@ -73,6 +73,15 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+// Ads
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.AdListener
+import com.android.billingclient.api.*
+
+
 data class Trip(
     var distanceInMeters: Float = 0f, // Distance in meters
     var totalSpeed: Float = 0f, // Cumulative speed for average calculation
@@ -130,12 +139,72 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        setupBillingClient()
+        MobileAds.initialize(this) { }
+
+        if (!isAdFree()) {
+            loadBannerAd() // Only load ads if the user hasn't purchased ad removal
+        }
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         sharedPrefs = getSharedPreferences("settings", Context.MODE_PRIVATE) // Initialize here
         setContent {
             SpeedometerApp()
         }
     }
+
+    // Load up adverts
+    private fun loadBannerAd() {
+        val adView = AdView(this).apply {
+            adUnitId = "YOUR_AD_UNIT_ID" // Replace with your AdMob ad unit ID
+            adSize = AdSize.BANNER
+        }
+        adView.loadAd(AdRequest.Builder().build())
+        // Assuming you have a layout placeholder to add this AdView
+        findViewById<LinearLayout>(R.id.adContainer).addView(adView)
+    }
+
+
+    private fun isAdFree(): Boolean {
+        val prefs = getSharedPreferences("prefs", Context.MODE_PRIVATE)
+        return prefs.getBoolean("isAdFree", false)
+    }
+
+    private fun onPurchaseCompleted() {
+        getSharedPreferences("prefs", Context.MODE_PRIVATE).edit().putBoolean("isAdFree", true).apply()
+        findViewById<LinearLayout>(R.id.adContainer).removeAllViews() // Remove ad container content
+    }
+
+    private lateinit var billingClient: BillingClient
+
+    private fun setupBillingClient() {
+        billingClient = BillingClient.newBuilder(this)
+            .setListener { billingResult, purchases ->
+                if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
+                    for (purchase in purchases) {
+                        if (purchase.skus.contains("remove_ads")) {
+                            onPurchaseCompleted()
+                        }
+                    }
+                }
+            }
+            .enablePendingPurchases()
+            .build()
+
+        billingClient.startConnection(object : BillingClientStateListener {
+            override fun onBillingSetupFinished(billingResult: BillingResult) {
+                if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                    // Billing client ready
+                }
+            }
+
+            override fun onBillingServiceDisconnected() {
+                // Try to restart the connection on disconnect
+            }
+        })
+    }
+
 
     // Function to get the unit preference
     private fun getUnitPreference(): String {

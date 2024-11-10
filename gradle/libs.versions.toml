@@ -13,6 +13,7 @@ activityCompose = "1.9.1"
 composeBom = "2024.04.01"
 constraintlayout = "2.1.4"
 monitor = "1.7.2"
+adsMobileSdk = "0.10.0-alpha01"
 
 [libraries]
 androidx-cardview = { module = "androidx.cardview:cardview", version.ref = "cardview" }
@@ -34,6 +35,7 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-monitor = { group = "androidx.test", name = "monitor", version.ref = "monitor" }
+ads-mobile-sdk = { group = "com.google.android.libraries.ads.mobile.sdk", name = "ads-mobile-sdk", version.ref = "adsMobileSdk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
