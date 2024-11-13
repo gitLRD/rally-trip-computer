@@ -210,6 +210,41 @@ class MainActivity : ComponentActivity() {
                     ModalDrawerSheet {
                         Spacer(Modifier.height(12.dp))
 
+                        // Tracking option
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Tracking", modifier = Modifier.weight(1f))
+
+                            Switch(
+                                checked = isTracking,
+                                onCheckedChange = { isChecked ->
+                                    if (isChecked) {
+                                        checkPermissionsAndStartTracking(context, permissionLauncher, trips) { newSpeed ->
+                                            speed = newSpeed
+                                        }
+                                    } else {
+                                        stopTracking(context)
+                                    }
+                                }
+                            )
+
+                            Spacer(Modifier.weight(1.25f)) // shift the switch to the left
+                        }
+
+                        Spacer(Modifier.height(2.dp))
+
+                        // Units setting
+                        UnitSetting { newUnits ->
+                            setUnitPreference(newUnits)
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
                         // Theme toggle
                         Row(
                             modifier = Modifier
@@ -236,11 +271,9 @@ class MainActivity : ComponentActivity() {
                             Spacer(Modifier.weight(1.25f))
                         }
 
-                        // Units setting
-                        UnitSetting { newUnits ->
-                            setUnitPreference(newUnits)
-                        }
+                        Spacer(Modifier.height(12.dp))
 
+                        // Help button
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -260,8 +293,6 @@ class MainActivity : ComponentActivity() {
                             )
                             Spacer(Modifier.width(70.dp))
                         }
-
-                        Spacer(Modifier.height(16.dp))
                     }
                 }
             ) {
@@ -316,7 +347,7 @@ class MainActivity : ComponentActivity() {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text("Help") },
-            text = { Text("This app gives two trip computers and an instant speed reading. \n\n Each trip computer can be used to track speed and distance, and can be reset by tapping one of their squares.") },
+            text = { Text("This app gives two trip computers and an instant speed reading. \n\n Each trip computer can be used to track speed and distance, and can be reset by tapping one of their squares. \n\nWhen you have finished using the app, switch tracking off using the toggle in the settings menu to preserve battery life.") },
             confirmButton = {
                 androidx.compose.material3.TextButton(
                     onClick = { onDismiss() }
@@ -501,6 +532,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var isTracking by mutableStateOf(false)
+    private var locationListener: LocationListener? = null
+
     private fun checkPermissionsAndStartTracking(
         context: Context,
         permissionLauncher: ActivityResultLauncher<String>,
@@ -517,30 +551,30 @@ class MainActivity : ComponentActivity() {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
             startTracking(context, trips, onSpeedChange) // Ensure speed is updated in the callback
+            Log.d("Tracking", "Start tracking fired")
         }
     }
 
+    // Modify the startTracking function
     private fun startTracking(
         context: Context,
         trips: SnapshotStateList<Trip>,
         onSpeedChange: (Float) -> Unit
     ) {
+        if (isTracking) return // Exit if already tracking
+
+        Log.d("Tracking", "Enabling tracking")
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         var previousLocation: Location? = null
 
-        val locationListener = object : LocationListener {
+        locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 val speed = (location.speed * 3600) / 1000 // Convert from m/s to km/h
+                onSpeedChange(speed)  // Update speed in UI
 
-                onSpeedChange(speed)  // This will recompose the SpeedCard
-
-                // Update trips if necessary (for distance tracking)
+                // Update trips if necessary
                 val lastLocation = previousLocation
-                val deltaDistance = if (lastLocation != null) {
-                    location.distanceTo(lastLocation) // Record distance in meters
-                } else {
-                    0f
-                }
+                val deltaDistance = lastLocation?.let { location.distanceTo(it) } ?: 0f
 
                 for (i in trips.indices) {
                     val updatedTrip = trips[i].copy()
@@ -563,10 +597,22 @@ class MainActivity : ComponentActivity() {
         ) {
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
-                0,
-                0f,
-                locationListener
+                1000,
+                1f,
+                locationListener!!
             )
         }
+
+        isTracking = true // Set tracking to active
+    }
+
+    private fun stopTracking(context: Context) {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        locationListener?.let {
+            locationManager.removeUpdates(it)
+            locationListener = null
+        }
+        isTracking = false // Ensure tracking state is updated
+        Log.d("Tracking", "Stop tracking fired")
     }
 }
