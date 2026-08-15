@@ -2,13 +2,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions -->
+    <!--
+      Foreground use only. There is deliberately no ACCESS_BACKGROUND_LOCATION: the app
+      holds the screen on while tracking and stops when it is closed, so it has no use
+      for background location and should not ask for it.
+    -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-    <!-- Make sure ensure the app still works on devices without GPS -->
-    <uses-feature android:name="android.hardware.location.gps" />
+    <!-- Declared, but not required, so the app still installs on devices without GPS -->
+    <uses-feature
+        android:name="android.hardware.location.gps"
+        android:required="false" />
 
     <application
         android:allowBackup="true"
