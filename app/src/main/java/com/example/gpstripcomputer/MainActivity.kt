@@ -1,24 +1,15 @@
 package com.example.gpstripcomputer
 
 import android.Manifest
-import android.content.Context
-import android.content.SharedPreferences
-import android.content.pm.PackageManager
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.Bundle
-import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,13 +19,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,11 +35,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -57,562 +47,358 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-data class Trip(
-    var distanceInMeters: Float = 0f, // Distance in meters
-    var totalSpeed: Float = 0f, // Cumulative speed for average calculation
-    var speedCount: Int = 0 // Number of speed readings
-) {
-    val averageSpeed: Float
-        get() = if (speedCount > 0) totalSpeed / speedCount else 0f
-
-    fun update(speed: Float, deltaDistance: Float) {
-        distanceInMeters += deltaDistance
-        totalSpeed += speed
-        speedCount++
-    }
-
-}
-
-// Data class for navigation drawer items
-data class NavigationDrawerItem(
-    val title: String,
-    val selectedIcon: ImageVector,
-    val unselectedIcon: ImageVector,
-    val badgeCount: Int? = null
-)
-
-enum class SpeedUnit {
-    KILOMETERS_PER_HOUR,
-    MILES_PER_HOUR;
-
-    fun unitAbbreviation(): String {
-        return when (this) {
-            KILOMETERS_PER_HOUR -> "km/h"
-            MILES_PER_HOUR -> "mph"
-        }
-    }
-}
-
-enum class DistanceUnit {
-    KILOMETERS,
-    MILES;
-
-    fun unitAbbreviation(): String {
-        return when (this) {
-            KILOMETERS -> "km"
-            MILES -> "mi"
-        }
-    }
-}
-
 class MainActivity : ComponentActivity() {
 
-    // Define a class-level boolean variable for debug mode
-    private var isDebugMode: Boolean = true
-    private lateinit var sharedPrefs: SharedPreferences // Declare sharedPrefs
-    var showHelpDialog by mutableStateOf(false)
+    private lateinit var settings: Settings
+    private lateinit var tracker: TripTracker
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        sharedPrefs = getSharedPreferences("settings", Context.MODE_PRIVATE) // Initialize here
+
+        settings = Settings(this)
+        tracker = TripTracker(this, lifecycleScope)
+
         setContent {
-            SpeedometerApp()
+            TripComputerApp(settings = settings, tracker = tracker)
         }
     }
 
-    // Function to get the unit preference
-    private fun getUnitPreference(): String {
-        return sharedPrefs.getString("units", "metric") ?: "metric" // Default to metric
+    override fun onDestroy() {
+        tracker.stop()
+        super.onDestroy()
     }
+}
 
-    // Function to set the unit preference
-    fun setUnitPreference(units: String) {
-        with(sharedPrefs.edit()) {
-            putString("units", units)
-            apply()
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TripComputerApp(settings: Settings, tracker: TripTracker) {
+    var isDarkTheme by remember { mutableStateOf(false) }
+    val systemInDarkTheme = isSystemInDarkTheme()
+    LaunchedEffect(systemInDarkTheme) { isDarkTheme = systemInDarkTheme }
+
+    var unitSystem by remember { mutableStateOf(settings.unitSystem) }
+    var includeStoppedTime by remember { mutableStateOf(settings.includeStoppedTime) }
+    var showHelp by remember { mutableStateOf(false) }
+
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) tracker.start() }
+
+    LaunchedEffect(Unit) {
+        if (tracker.hasLocationPermission()) {
+            tracker.start()
+        } else {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
-    fun getDistanceUnit(units: String, context: Context): DistanceUnit {
-        val sharedPrefs = context.getSharedPreferences("unit_prefs", Context.MODE_PRIVATE)
-        val unitPreference = sharedPrefs.getString("units", "metric")
-        return if (unitPreference == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
-    }
+    MaterialTheme(colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = drawerState.isOpen,
+            drawerContent = {
+                ModalDrawerSheet {
+                    Spacer(Modifier.height(12.dp))
 
-    fun convertSpeed(speed: Float, fromUnit: SpeedUnit, toUnit: SpeedUnit): Float {
-        return when {
-            fromUnit == toUnit -> speed
-            fromUnit == SpeedUnit.KILOMETERS_PER_HOUR && toUnit == SpeedUnit.MILES_PER_HOUR -> speed * 0.621371f
-            else -> speed * 1.60934f
-        }
-    }
-
-    fun convertDistance(distanceInMeters: Float, fromUnit: DistanceUnit, toUnit: DistanceUnit): Float {
-        return when (fromUnit) {
-            DistanceUnit.KILOMETERS -> distanceInMeters / 1000.0f
-            DistanceUnit.MILES -> distanceInMeters / 1609.34f
-            else -> distanceInMeters // Default to meters if unit is unknown
-        }
-    }
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    fun SpeedometerApp() {
-        var speed by remember { mutableStateOf(0f) }
-        val isAlreadyDark = isSystemInDarkTheme()
-        var isDarkTheme by remember { mutableStateOf(isAlreadyDark) }
-        val trips = remember { mutableStateListOf(Trip(), Trip()) }
-        val context = LocalContext.current
-        val drawerState = rememberDrawerState(DrawerValue.Closed)
-        val scope = rememberCoroutineScope()
-        var selectedItemIndex by remember { mutableStateOf(0) } // Track selected item
-
-        val permissionLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { isGranted: Boolean ->
-            if (isGranted) {
-                startTracking(context, trips) { newSpeed -> speed = newSpeed }
-            } else {
-                if (isDebugMode) {
-                    Log.d("Speedometer", "Permission denied")
-                }
-            }
-        }
-
-        LaunchedEffect(Unit) {
-            checkPermissionsAndStartTracking(context, permissionLauncher, trips) { newSpeed ->
-                speed = newSpeed
-            }
-        }
-
-        MaterialTheme(colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()) {
-            ModalNavigationDrawer(
-                drawerState = drawerState,
-                gesturesEnabled = drawerState.isOpen,
-                drawerContent = {
-                    ModalDrawerSheet {
-                        Spacer(Modifier.height(12.dp))
-
-                        // Tracking option
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Tracking", modifier = Modifier.weight(1f))
-
-                            Switch(
-                                checked = isTracking,
-                                onCheckedChange = { isChecked ->
-                                    if (isChecked) {
-                                        checkPermissionsAndStartTracking(context, permissionLauncher, trips) { newSpeed ->
-                                            speed = newSpeed
-                                        }
-                                    } else {
-                                        stopTracking(context)
-                                    }
-                                }
-                            )
-
-                            Spacer(Modifier.weight(1.25f)) // shift the switch to the left
-                        }
-
-                        Spacer(Modifier.height(2.dp))
-
-                        // Units setting
-                        UnitSetting { newUnits ->
-                            setUnitPreference(newUnits)
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        // Theme toggle
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(NavigationDrawerItemDefaults.ItemPadding),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Theme", modifier = Modifier.weight(1f))
-                            Spacer(Modifier.width(8.dp))
-
-                            Switch(
-                                checked = isDarkTheme,
-                                onCheckedChange = { isDarkTheme = it },
-                                thumbContent = {
-                                    Icon(
-                                        imageVector = if (isDarkTheme) Icons.Filled.DarkMode else Icons.Filled.LightMode,
-                                        contentDescription = if (isDarkTheme) "Dark Mode" else "Light Mode",
-                                        modifier = Modifier.size(ButtonDefaults.IconSize)
+                    SettingRow(label = stringResource(R.string.tracking)) {
+                        Switch(
+                            checked = tracker.isTracking,
+                            onCheckedChange = { wantsTracking ->
+                                if (!wantsTracking) {
+                                    tracker.stop()
+                                } else if (tracker.hasLocationPermission()) {
+                                    tracker.start()
+                                } else {
+                                    permissionLauncher.launch(
+                                        Manifest.permission.ACCESS_FINE_LOCATION
                                     )
-                                }
-                            )
-
-                            Spacer(Modifier.weight(1.25f))
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        // Help button
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                                .clickable { showHelpDialog = true },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // A fixed-size Box around the text to prevent it from stretching unnecessarily
-                            Text("Help")
-
-                            // No weight on the icon, so it stays next to the text
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Help,
-                                contentDescription = "Help",
-                                modifier = Modifier.size(ButtonDefaults.IconSize)
-                            )
-                            Spacer(Modifier.width(70.dp))
-                        }
-                    }
-                }
-            ) {
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { Text(text = "Speedometer") },
-                            navigationIcon = {
-                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                    Icon(Icons.Default.Menu, contentDescription = "Menu Icon")
                                 }
                             }
                         )
-                    },
-                    content = { paddingValues ->
-                        Column(modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                        ) {
-                            InfoGrid(
-                                speed = speed,
-                                trips = trips,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                            )
-
-                            SpeedCard(
-                                speed = speed,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(0.5f)
-                                    .padding(4.dp)
-                            )
-                        }
                     }
-                )
-                if (showHelpDialog) {
-                    ShowHelpDialog(onDismiss = { showHelpDialog = false })
-                }
-            }
-        }
-    }
 
-    @Composable
-    fun HelperDialogHelper() {
-        // Here because it's 
-    }
+                    UnitSetting(
+                        selected = unitSystem,
+                        onSelect = {
+                            unitSystem = it
+                            settings.unitSystem = it
+                        }
+                    )
 
-    @Composable
-    fun ShowHelpDialog(onDismiss: () -> Unit) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text("Help") },
-            text = { Text("This app gives two trip computers and an instant speed reading. \n\n Each trip computer can be used to track speed and distance, and can be reset by tapping one of their squares. \n\nWhen you have finished using the app, switch tracking off using the toggle in the settings menu to preserve battery life.") },
-            confirmButton = {
-                androidx.compose.material3.TextButton(
-                    onClick = { onDismiss() }
-                ) {
-                    Text("OK")
-                }
-            }
-        )
-    }
+                    SettingRow(
+                        label = stringResource(R.string.include_stopped_time),
+                        supporting = stringResource(R.string.include_stopped_time_summary)
+                    ) {
+                        Switch(
+                            checked = includeStoppedTime,
+                            onCheckedChange = {
+                                includeStoppedTime = it
+                                settings.includeStoppedTime = it
+                            }
+                        )
+                    }
 
-    @Composable
-    fun InfoCard(
-        infoHeader: String,
-        infoValue: String,
-        infoType: String,
-        onTripReset: (Int) -> Unit,
-        modifier: Modifier = Modifier
-    ) {
-        Card(modifier = modifier.clickable {
-            val tripIndex = infoHeader.substringAfter("Trip ").toIntOrNull() ?: -1
-            if (tripIndex >= 0) {
-                onTripReset(tripIndex - 1) // Adjust index for 0-based list
-            }
-        }) {
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = infoHeader,
-                    style = MaterialTheme.typography.labelMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = infoValue,
-                    style = MaterialTheme.typography.headlineMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = infoType,
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-        }
-    }
+                    SettingRow(label = stringResource(R.string.theme)) {
+                        Switch(
+                            checked = isDarkTheme,
+                            onCheckedChange = { isDarkTheme = it },
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (isDarkTheme) {
+                                        Icons.Filled.DarkMode
+                                    } else {
+                                        Icons.Filled.LightMode
+                                    },
+                                    contentDescription = stringResource(
+                                        if (isDarkTheme) R.string.dark_mode else R.string.light_mode
+                                    ),
+                                    modifier = Modifier.size(ButtonDefaults.IconSize)
+                                )
+                            }
+                        )
+                    }
 
-    @Composable
-    fun InfoGrid(speed: Float, trips: SnapshotStateList<Trip>, modifier: Modifier = Modifier) {
-        val padding = 8.dp
-        val totalPadding = padding * 2
-
-        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-            val maxWidth = maxWidth - totalPadding
-            val maxHeight = maxHeight - totalPadding
-
-            val numberOfRows = 2
-            val cellHeight = maxHeight / numberOfRows
-            val numberOfColumns = trips.size
-            val cellWidth = maxWidth / numberOfColumns
-
-            LazyHorizontalGrid(
-                rows = GridCells.Fixed(numberOfRows),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(cellHeight * numberOfRows)
-                    .padding(padding),
-                verticalArrangement = Arrangement.spacedBy(padding),
-                horizontalArrangement = Arrangement.spacedBy(padding)
-            ) {
-                items(trips.size * 2, key = { index -> index }) { index ->
-                    val tripIndex = index % trips.size
-                    val isDistance = index >= trips.size
-
-                    val distanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
-                    val fromDistanceUnit = if (getUnitPreference() == "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
-                    val toDistanceUnit = if (getUnitPreference() != "metric") DistanceUnit.KILOMETERS else DistanceUnit.MILES
-
-                    InfoCard(
-                        infoHeader = "Trip ${tripIndex + 1}",
-                        infoValue = if (isDistance) {
-                            val convertedDistance = convertDistance(trips[tripIndex].distanceInMeters, fromDistanceUnit, toDistanceUnit)
-                            String.format(Locale.getDefault(), "%.2f ${distanceUnit.unitAbbreviation()}", convertedDistance)
-                        } else {
-                            val speedUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
-                            val convertedSpeed = convertSpeed(trips[tripIndex].averageSpeed, SpeedUnit.KILOMETERS_PER_HOUR, speedUnit) // Convert average speed
-                            String.format(Locale.getDefault(), "%.2f ${speedUnit.unitAbbreviation()}", convertedSpeed) // Use converted speed and correct unit
-                        },
-                        infoType = if (isDistance) {
-                            "Distance"
-                        } else {
-                            "Average Speed"
-                        },
-                        onTripReset = { tripIndex ->
-                            trips[tripIndex] = Trip() // Reset trip data using Trip()
-                        },
+                    Row(
                         modifier = Modifier
-                            .size(cellWidth, cellHeight)
+                            .fillMaxWidth()
+                            .clickable { showHelp = true }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(stringResource(R.string.help), modifier = Modifier.weight(1f))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Help,
+                            contentDescription = null,
+                            modifier = Modifier.size(ButtonDefaults.IconSize)
+                        )
+                    }
+                }
+            }
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.app_name)) },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, stringResource(R.string.menu))
+                            }
+                        }
+                    )
+                }
+            ) { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    tracker.trips.forEachIndexed { index, trip ->
+                        TripRow(
+                            tripNumber = index + 1,
+                            trip = trip,
+                            unitSystem = unitSystem,
+                            includeStoppedTime = includeStoppedTime,
+                            onReset = { tracker.resetTrip(index) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        )
+                    }
+
+                    SpeedCard(
+                        speedMps = tracker.currentSpeedMps,
+                        unitSystem = unitSystem,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
                     )
                 }
             }
-        }
-    }
 
-
-    @Composable
-    fun SpeedCard(speed: Float, modifier: Modifier = Modifier) {
-        // Log to see if the SpeedCard is being recomposed
-        Log.d("Speedometer", "SpeedCard recomposed with speed: $speed")
-
-        val speedUnit = if (getUnitPreference() == "metric") SpeedUnit.KILOMETERS_PER_HOUR else SpeedUnit.MILES_PER_HOUR
-        val convertedSpeed = convertSpeed(speed, SpeedUnit.KILOMETERS_PER_HOUR, speedUnit)
-
-        val speedUnitEnum = when (getUnitPreference()) { // Define speedUnitEnum here
-            "metric" -> SpeedUnit.KILOMETERS_PER_HOUR
-            "imperial" -> SpeedUnit.MILES_PER_HOUR
-            else -> SpeedUnit.KILOMETERS_PER_HOUR // Default to metric
-        }
-
-        Card(
-            modifier = modifier,
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "Current Speed",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = String.format(Locale.getDefault(), "%.2f ${speedUnitEnum.unitAbbreviation()}", convertedSpeed),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            if (showHelp) {
+                HelpDialog(onDismiss = { showHelp = false })
             }
         }
-    }
-
-    @Composable
-    fun UnitSetting(onUnitChange: (String) -> Unit) {
-        var selectedUnit by remember { mutableStateOf(getUnitPreference()) }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Units", style = MaterialTheme.typography.bodyLarge)
-
-            Row {
-                RadioButton(
-                    selected = selectedUnit == "metric",
-                    onClick = {
-                        selectedUnit = "metric"
-                        onUnitChange(selectedUnit)
-                    }
-                )
-                Text("Metric", style = MaterialTheme.typography.bodyMedium)
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                RadioButton(
-                    selected = selectedUnit == "imperial",
-                    onClick = {
-                        selectedUnit = "imperial"
-                        onUnitChange(selectedUnit)
-                    }
-                )
-                Text("Imperial", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-    }
-
-    private var isTracking by mutableStateOf(false)
-    private var locationListener: LocationListener? = null
-
-    private fun checkPermissionsAndStartTracking(
-        context: Context,
-        permissionLauncher: ActivityResultLauncher<String>,
-        trips: SnapshotStateList<Trip>,
-        onSpeedChange: (Float) -> Unit // This should be the proper type
-    ) {
-        if (isDebugMode) {
-            Log.d("Speedometer", "Checking permissions...")
-        }
-
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        } else {
-            startTracking(context, trips, onSpeedChange) // Ensure speed is updated in the callback
-            Log.d("Tracking", "Start tracking fired")
-        }
-    }
-
-    // Modify the startTracking function
-    private fun startTracking(
-        context: Context,
-        trips: SnapshotStateList<Trip>,
-        onSpeedChange: (Float) -> Unit
-    ) {
-        if (isTracking) return // Exit if already tracking
-
-        Log.d("Tracking", "Enabling tracking")
-        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        var previousLocation: Location? = null
-
-        locationListener = object : LocationListener {
-            override fun onLocationChanged(location: Location) {
-                val speed = (location.speed * 3600) / 1000 // Convert from m/s to km/h
-                onSpeedChange(speed)  // Update speed in UI
-
-                // Update trips if necessary
-                val lastLocation = previousLocation
-                val deltaDistance = lastLocation?.let { location.distanceTo(it) } ?: 0f
-
-                for (i in trips.indices) {
-                    val updatedTrip = trips[i].copy()
-                    updatedTrip.update(speed, deltaDistance)
-                    trips[i] = updatedTrip
-                }
-
-                previousLocation = location
-            }
-
-            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-            override fun onProviderEnabled(provider: String) {}
-            override fun onProviderDisabled(provider: String) {}
-        }
-
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            locationManager.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                1000,
-                1f,
-                locationListener!!
-            )
-        }
-
-        isTracking = true // Set tracking to active
-    }
-
-    private fun stopTracking(context: Context) {
-        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        locationListener?.let {
-            locationManager.removeUpdates(it)
-            locationListener = null
-        }
-        isTracking = false // Ensure tracking state is updated
-        Log.d("Tracking", "Stop tracking fired")
     }
 }
+
+@Composable
+private fun SettingRow(
+    label: String,
+    supporting: String? = null,
+    control: @Composable () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (supporting != null) {
+                Text(
+                    text = supporting,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        control()
+    }
+}
+
+@Composable
+private fun UnitSetting(selected: UnitSystem, onSelect: (UnitSystem) -> Unit) {
+    SettingRow(label = stringResource(R.string.units)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(
+                selected = selected == UnitSystem.METRIC,
+                onClick = { onSelect(UnitSystem.METRIC) }
+            )
+            Text(stringResource(R.string.metric), style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.width(8.dp))
+            RadioButton(
+                selected = selected == UnitSystem.IMPERIAL,
+                onClick = { onSelect(UnitSystem.IMPERIAL) }
+            )
+            Text(stringResource(R.string.imperial), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun TripRow(
+    tripNumber: Int,
+    trip: Trip,
+    unitSystem: UnitSystem,
+    includeStoppedTime: Boolean,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val header = stringResource(R.string.trip_label, tripNumber)
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        InfoCard(
+            header = header,
+            value = formatMeasurement(
+                metresPerSecondTo(trip.averageSpeedMps(includeStoppedTime), unitSystem.speedUnit),
+                unitSystem.speedUnit.abbreviation
+            ),
+            caption = stringResource(R.string.average_speed),
+            onClick = onReset,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize()
+        )
+        InfoCard(
+            header = header,
+            value = formatMeasurement(
+                metresTo(trip.distanceMetres, unitSystem.distanceUnit),
+                unitSystem.distanceUnit.abbreviation
+            ),
+            caption = stringResource(R.string.distance),
+            onClick = onReset,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize()
+        )
+    }
+}
+
+@Composable
+private fun InfoCard(
+    header: String,
+    value: String,
+    caption: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(modifier = modifier.clickable(onClick = onClick)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(header, style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(caption, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+private fun SpeedCard(speedMps: Double, unitSystem: UnitSystem, modifier: Modifier = Modifier) {
+    Card(modifier = modifier, elevation = CardDefaults.cardElevation(8.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = stringResource(R.string.current_speed),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = formatMeasurement(
+                    metresPerSecondTo(speedMps, unitSystem.speedUnit),
+                    unitSystem.speedUnit.abbreviation
+                ),
+                style = MaterialTheme.typography.headlineLarge
+            )
+        }
+    }
+}
+
+@Composable
+private fun HelpDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.help)) },
+        text = { Text(stringResource(R.string.help_body)) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) }
+        }
+    )
+}
+
+@Composable
+private fun formatMeasurement(value: Double, abbreviation: String): String =
+    stringResource(
+        R.string.measurement,
+        String.format(Locale.getDefault(), "%.2f", value),
+        abbreviation
+    )
