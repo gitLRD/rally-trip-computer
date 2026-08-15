@@ -1,4 +1,4 @@
-package com.example.gpstripcomputer
+package io.github.gitlrd.gpstripcomputer
 
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4

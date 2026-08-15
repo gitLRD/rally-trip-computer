@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "com.example.gpstripcomputer"
+    namespace = "io.github.gitlrd.gpstripcomputer"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.gpstripcomputer"
+        applicationId = "io.github.gitlrd.gpstripcomputer"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

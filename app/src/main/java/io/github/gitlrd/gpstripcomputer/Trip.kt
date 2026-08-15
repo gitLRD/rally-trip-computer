@@ -1,4 +1,4 @@
-package com.example.gpstripcomputer
+package io.github.gitlrd.gpstripcomputer
 
 /**
  * Speeds at or above this count as "moving" (0.5 m/s is about 1.8 km/h). Below it the

@@ -1,4 +1,4 @@
-package com.example.gpstripcomputer
+package io.github.gitlrd.gpstripcomputer
 
 /**
  * Internally the app works in SI units throughout: metres for distance, metres per second

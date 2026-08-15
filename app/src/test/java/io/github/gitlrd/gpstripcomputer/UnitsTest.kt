@@ -1,4 +1,4 @@
-package com.example.gpstripcomputer
+package io.github.gitlrd.gpstripcomputer
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

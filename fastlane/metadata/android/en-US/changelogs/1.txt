@@ -1,0 +1,7 @@
+First release.
+
+* Two independent trip computers plus a live speed readout
+* Average speed derived from distance over time, with a setting to include or
+  exclude time spent stopped
+* Metric and imperial units
+* Light and dark themes
