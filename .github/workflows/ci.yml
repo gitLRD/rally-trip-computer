@@ -2,8 +2,12 @@ name: CI
 
 on:
   # Every branch, not just main: this is a solo repo where work is often merged
-  # straight to main, so a branch that has never been checked is no use.
+  # straight to main, so a branch that has never been checked is no use. Dependabot
+  # branches are excluded because their pull_request event already covers them, and
+  # running both doubles the emulator jobs for nothing.
   push:
+    branches-ignore:
+      - 'dependabot/**'
   pull_request:
   workflow_dispatch:
 
