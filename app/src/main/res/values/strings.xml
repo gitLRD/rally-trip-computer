@@ -1,3 +1,25 @@
 <resources>
     <string name="app_name">GPS Trip Computer</string>
+
+    <string name="menu">Menu</string>
+    <string name="tracking">Tracking</string>
+    <string name="units">Units</string>
+    <string name="metric">Metric</string>
+    <string name="imperial">Imperial</string>
+    <string name="theme">Theme</string>
+    <string name="dark_mode">Dark mode</string>
+    <string name="light_mode">Light mode</string>
+
+    <string name="include_stopped_time">Include stopped time</string>
+    <string name="include_stopped_time_summary">Count time spent stationary in the average speed</string>
+
+    <string name="current_speed">Current Speed</string>
+    <string name="average_speed">Average Speed</string>
+    <string name="distance">Distance</string>
+    <string name="trip_label">Trip %1$d</string>
+    <string name="measurement">%1$s %2$s</string>
+
+    <string name="help">Help</string>
+    <string name="help_body">This app gives two trip computers and an instant speed reading.\n\nEach trip computer can be used to track speed and distance, and can be reset by tapping one of their squares.\n\nAverage speed is worked out from distance over time. With \“Include stopped time\” switched on, time spent stationary counts towards the average, so a long stop will pull it down. Switch it off to see your moving average instead.\n\nWhen you have finished using the app, switch tracking off using the toggle in the settings menu to preserve battery life.</string>
+    <string name="ok">OK</string>
 </resources>

@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "com.example.gpstripcomputer"
+    namespace = "io.github.gitlrd.gpstripcomputer"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.gpstripcomputer"
+        applicationId = "io.github.gitlrd.gpstripcomputer"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -40,7 +40,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
     packaging {
         resources {
@@ -53,28 +53,22 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.compose.material3:material3-window-size-class:1.3.0")
-    implementation("androidx.cardview:cardview:1.0.0")
-    implementation("androidx.compose.material3:material3:1.3.0")
-    implementation("androidx.core:core:1.13.1")
-    implementation("androidx.compose.material:material-icons-core:1.7.1")
-    implementation("androidx.compose.material:material-icons-extended:1.7.1")
-    implementation(libs.androidx.monitor)
+    implementation(libs.androidx.material.icons.extended)
+
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit.v115)
-    androidTestImplementation(libs.androidx.espresso.core.v351)
-    implementation(libs.androidx.constraintlayout)
-    testImplementation(libs.junit)
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
