@@ -1,31 +1,37 @@
-A simple trip computer for walking, cycling and driving. It reads your speed and
-distance straight from the GPS receiver — no account, no network, no tracking of
-any kind, and nothing leaves your device.
+Two independent trip meters and a live speed readout, using nothing but your phone's GPS
+receiver. Built for road rallying — a pair of trip meters on the dashboard without bolting
+anything permanent into the car — but just as useful for cycling, walking or any drive
+where you want to know how far you have actually gone.
 
-The screen shows two independent trip computers and a live speed readout. Each
-trip records distance and average speed, and either can be reset on its own by
-tapping it, so you can keep one running for the whole journey and use the other
-for a single leg.
+No account, no network, no analytics, and no internet permission at all. Nothing leaves
+your device.
 
-Average speed is worked out from distance over time rather than by averaging
-speed readings, so it stays honest over a long ride. A setting decides what
-happens when you stop: leave "Include stopped time" on and a break at a
-checkpoint pulls your average down, which is what you want for an overall
-journey average. Switch it off and you get a moving average instead, ignoring
-time spent stationary.
+Each trip records distance, average speed, elapsed time and maximum speed, and either can
+be reset on its own by tapping it. Keep one running for the whole journey and use the other
+for a single leg between junctions.
 
-Distance only accumulates while the receiver reports real movement, so sitting
-still does not slowly clock up phantom miles.
+Average speed is worked out from distance over time rather than by averaging speed
+readings, so it stays honest over a long run. A setting decides what happens when you stop:
+leave "Include stopped time" on and a break pulls your average down, which is what you want
+against a schedule. Switch it off for a moving average instead.
+
+Distance is guarded carefully. Fixes with poor reported accuracy are discarded, and
+distance only accumulates while the receiver reports real movement — so sitting still does
+not slowly clock up miles you never drove. Ground covered while crawling along slowly is
+still counted.
 
 Features:
 
 * Two independent trip computers, each resettable on its own
-* Live speed readout
+* Live speed readout, plus trip time and maximum speed
 * Overall or moving average speed
 * Metric and imperial units
-* Light and dark themes
-* Screen stays awake while tracking
-* Tracking can be switched off entirely to save battery
+* Light, dark, and a red-on-black night mode that preserves your night vision
+* In-app brightness control
+* Keeps recording in the background, with an ongoing notification you can stop from
+* Trips are saved as you go and survive the app being closed
+* Adapts to foldables, tablets and split-screen
 
-The app uses location only while it is open. It does not request background
-location, and it has no internet permission at all.
+The app uses location only while you have switched tracking on. It does not request
+background location permission: recording in the background runs through a foreground
+service, which cannot operate without a notification you can see.

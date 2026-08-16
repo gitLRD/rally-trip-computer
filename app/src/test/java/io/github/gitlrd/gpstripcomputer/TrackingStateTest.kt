@@ -43,17 +43,18 @@ class TrackingStateTest {
         assertEquals(0.0, state.currentSpeedMps, 0.0)
     }
 
+    // Displacements here match the speed being reported, or the jump check fires instead.
     @Test
     fun `speed exactly at the threshold counts as moving`() {
         val state = TrackingState()
-        state.fix(10.0, MOVING_THRESHOLD_MPS)
-        state.trips.forEach { assertEquals(10.0, it.distanceMetres, 1e-9) }
+        state.fix(MOVING_THRESHOLD_MPS, MOVING_THRESHOLD_MPS)
+        state.trips.forEach { assertEquals(MOVING_THRESHOLD_MPS, it.distanceMetres, 1e-9) }
     }
 
     @Test
     fun `speed just below the threshold does not`() {
         val state = TrackingState()
-        state.fix(10.0, MOVING_THRESHOLD_MPS - 0.01)
+        state.fix(0.49, MOVING_THRESHOLD_MPS - 0.01)
         state.trips.forEach { assertEquals(0.0, it.distanceMetres, 0.0) }
     }
 
@@ -103,10 +104,59 @@ class TrackingStateTest {
         state.trips.forEach { assertEquals(12.0, it.distanceMetres, 1e-9) }
     }
 
+    /**
+     * A receiver coming back after a tunnel, or bouncing off a building, reports a position
+     * far from the last one while still claiming a sane speed. Banking that leap adds
+     * distance that was never driven — the thing that matters most to get right here.
+     */
+    @Test
+    fun `a position jump larger than the reported speed allows is not counted`() {
+        val state = TrackingState()
+        // Claims 11 m/s but has moved 500 m in one second.
+        val advance = state.fix(metres = 500.0, speed = movingMps, millis = 1_000)
+
+        assertTrue("the new position should still be adopted", advance)
+        state.trips.forEach { assertEquals(0.0, it.distanceMetres, 0.0) }
+        assertEquals("the reported speed is still shown", movingMps, state.currentSpeedMps, 1e-9)
+    }
+
+    @Test
+    fun `ordinary acceleration is not mistaken for a jump`() {
+        val state = TrackingState()
+        // Reported 10 m/s, actually covered 15 m in the second: brisk, but plausible.
+        state.fix(metres = 15.0, speed = 10.0, millis = 1_000)
+        state.trips.forEach { assertEquals(15.0, it.distanceMetres, 1e-9) }
+    }
+
+    @Test
+    fun `jitter while barely moving is not mistaken for a jump`() {
+        val state = TrackingState()
+        // Reported 0.6 m/s with 4 m of jitter: under the floor, so counted normally.
+        state.fix(metres = 4.0, speed = 0.6, millis = 1_000)
+        state.trips.forEach { assertEquals(4.0, it.distanceMetres, 1e-9) }
+    }
+
+    @Test
+    fun `a jump cannot be counted later either, because the anchor moves`() {
+        val state = TrackingState()
+        state.fix(metres = 500.0, speed = movingMps, millis = 1_000)
+        state.fix(metres = 11.1, speed = movingMps, millis = 1_000)
+        // Only the honest 11.1 m survives.
+        state.trips.forEach { assertEquals(11.1, it.distanceMetres, 1e-9) }
+    }
+
+    /** With no reported speed there is nothing to check the displacement against. */
+    @Test
+    fun `jump detection needs a reported speed`() {
+        val state = TrackingState()
+        state.fix(metres = 500.0, speed = null, millis = 1_000)
+        state.trips.forEach { assertEquals(500.0, it.distanceMetres, 1e-9) }
+    }
+
     // --- speed ------------------------------------------------------------------------
 
     @Test
-    fun `speed is derived from displacement when the receiver reports none`() {
+    fun `speed is derived from displacement since the anchor when none is reported`() {
         val state = TrackingState()
         state.fix(metres = 20.0, speed = null, millis = 2_000)
         assertEquals(10.0, state.currentSpeedMps, 1e-9)

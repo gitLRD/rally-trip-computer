@@ -11,6 +11,16 @@ const val STALE_FIX_MILLIS = 5000L
 const val MAX_FIX_ACCURACY_METRES = 25.0
 
 /**
+ * A fix whose implied speed exceeds the reported speed by more than this is treated as the
+ * receiver having jumped rather than the car having moved — multipath, or re-acquisition
+ * after a tunnel. The position is adopted, but the leap is not counted as distance.
+ *
+ * The floor keeps the check from firing on ordinary jitter while barely moving.
+ */
+const val JUMP_TOLERANCE_FACTOR = 3.0
+const val JUMP_TOLERANCE_FLOOR_MPS = 5.0
+
+/**
  * Every decision tracking makes, with no dependency on Android or on a clock — the caller
  * supplies elapsed times. [TripTracker] is the adapter that feeds this from a real
  * [android.location.LocationManager].
@@ -34,7 +44,9 @@ class TrackingState(tripCount: Int = 2) {
      *   there is not one yet.
      * @param reportedSpeedMps the receiver's own speed, or null if it did not supply one.
      * @param accuracyMetres reported horizontal accuracy, or null if unknown.
-     * @param millisSinceLastFix used only to derive a speed when [reportedSpeedMps] is null.
+     * @param millisSinceAnchor time since that anchor fix, not since the last fix — the
+     *   anchor may be several fixes old, and the implied speed must be measured over the
+     *   same interval as the distance.
      * @return whether the caller should move its measuring anchor to this fix. When false
      *   the anchor stays put, so ground covered in the meantime is added on a later fix
      *   rather than being lost — which is what keeps a slow crawl from under-reading.
@@ -43,13 +55,20 @@ class TrackingState(tripCount: Int = 2) {
         metresSinceAnchor: Double,
         reportedSpeedMps: Double?,
         accuracyMetres: Double?,
-        millisSinceLastFix: Long
+        millisSinceAnchor: Long
     ): Boolean {
         if (accuracyMetres != null && accuracyMetres > MAX_FIX_ACCURACY_METRES) return false
 
-        val speed = reportedSpeedMps ?: derivedSpeed(metresSinceAnchor, millisSinceLastFix)
+        val impliedSpeed = derivedSpeed(metresSinceAnchor, millisSinceAnchor)
+        val speed = reportedSpeedMps ?: impliedSpeed
+
         currentSpeedMps = speed
         trips = trips.map { it.withSpeedSample(speed) }
+
+        val jumped = reportedSpeedMps != null &&
+            impliedSpeed > reportedSpeedMps * JUMP_TOLERANCE_FACTOR + JUMP_TOLERANCE_FLOOR_MPS
+        // Adopt the new position so later fixes measure from it, but do not bank the leap.
+        if (jumped) return true
 
         if (speed < MOVING_THRESHOLD_MPS) return false
 
@@ -75,6 +94,6 @@ class TrackingState(tripCount: Int = 2) {
         if (saved.size == trips.size) trips = saved
     }
 
-    private fun derivedSpeed(metres: Double, millisSinceLastFix: Long): Double =
-        if (millisSinceLastFix <= 0L) 0.0 else metres / (millisSinceLastFix / 1000.0)
+    private fun derivedSpeed(metres: Double, millis: Long): Double =
+        if (millis <= 0L) 0.0 else metres / (millis / 1000.0)
 }
