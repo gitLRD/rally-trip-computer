@@ -32,6 +32,9 @@ jobs:
       - name: Unit tests
         run: ./gradlew testDebugUnitTest
 
+      - name: Screenshot tests
+        run: ./gradlew verifyRoborazziDebug
+
       - name: Lint
         run: ./gradlew lintDebug
 
@@ -43,6 +46,7 @@ jobs:
           path: |
             app/build/reports/
             app/build/test-results/
+            app/build/outputs/roborazzi/
           if-no-files-found: ignore
 
   instrumented:

@@ -2,48 +2,71 @@
 
 [![CI](https://github.com/gitLRD/gps-trip-computer-app/actions/workflows/ci.yml/badge.svg)](https://github.com/gitLRD/gps-trip-computer-app/actions/workflows/ci.yml)
 
-A small Android trip computer. It shows a live speed readout and two independent
-trip computers, each recording distance and average speed, using nothing but the
-device's GPS receiver.
+Two independent trip meters and a live speed readout, using nothing but the phone's GPS
+receiver. Built for **UK 12-car road rallies** — a pair of trip meters on the dashboard
+without bolting anything permanent into the car.
 
-No account, no network, no analytics. The app has no internet permission and does
-not request background location.
+No account, no network, no analytics. The app has no internet permission at all.
 
-## Average speed
+## Using it
 
-Average speed is derived from distance over time, not by averaging the individual
-GPS speed readings — a sample mean is skewed by however often the receiver happens
-to report, and cannot account for time spent stopped.
+Each trip records distance, average speed, elapsed time and maximum speed, and either can
+be reset on its own by tapping it — so one can run for the whole event while the other
+covers a single section between junctions. Distance leads the card, because that is what
+gets read off against the roadbook.
+
+Tracking is off until you switch it on, and stays on across restarts until you switch it
+off. While it is running a notification shows distance and speed, and tracking continues
+with the app in the background — checking a map mid-rally will not stop the meters.
+
+### Average speed
+
+Average speed is derived from distance over time, not by averaging the individual GPS speed
+readings: a sample mean is skewed by however often the receiver happens to report, and
+cannot account for time spent stopped.
 
 The **Include stopped time** setting chooses which time to divide by:
 
 | Setting | Divides distance by | Use for |
 | --- | --- | --- |
-| On (default) | Total time since the trip was reset | Overall journey average; a stop at a checkpoint pulls it down |
+| On (default) | Total time since the trip was reset | Overall average against a schedule; a halt at a time control pulls it down |
 | Off | Only time spent above 0.5 m/s | Moving average, ignoring stops |
 
-Distance only accumulates while the receiver reports genuine movement, so a
-stationary GPS jittering by a few metres does not clock up phantom distance.
+### Distance accuracy
 
-## Screen sizes and foldables
+Three things guard the distance figure, since that is the number that matters most:
 
-The layout is chosen from the width of the window it is given, not from the device, so it
-follows folding, rotation and multi-window resizing alike:
+* Fixes reporting worse than 25 m horizontal accuracy are discarded outright. Under trees
+  and in cuttings a receiver will happily emit fixes tens of metres out.
+* Distance only accumulates while the receiver reports genuine movement, so a stationary
+  GPS jittering by a few metres does not clock up miles that were never driven.
+* When movement is below that threshold the measuring anchor is **held** rather than
+  advanced, so a slow crawl looking for a junction is added once you are moving again
+  instead of being quietly dropped.
+
+### At night
+
+A third **Night** theme renders red on black, which preserves dark adaptation far better
+than a bright screen, and an in-app brightness slider dims the display below what the
+system would normally allow without leaving the app.
+
+### Screen sizes and foldables
+
+The layout is chosen from the width of the window, not from the device, so it follows
+folding, rotation and multi-window resizing alike:
 
 | Window width | Layout |
 | --- | --- |
 | Under 600dp — handset portrait, or a folded cover screen | Trips stacked, speed readout beneath |
 | 600dp and over — unfolded inner screen, tablet, landscape | Trips in a left column, speed readout alongside |
 
-Trip data lives in a `ViewModel`, so unfolding the device — which is a configuration change
-like any other — does not restart tracking or discard the journey so far.
+Trips live in the Application and are written to storage as you go, so neither unfolding
+the device nor Android reclaiming the process mid-event loses the numbers.
 
 ## Building
 
-The project needs a JDK 17 or 21. It will **not** build with the JDK 25 bundled
-in recent Android Studio releases — AGP 8.9 cannot parse that version and fails
-with a bare `* What went wrong: 25.0.2`. Set the Gradle JDK in Android Studio, or
-from the command line:
+Needs a JDK 17 or 21. It will **not** build with the JDK 25 bundled in recent Android
+Studio releases; set the Gradle JDK in Studio, or from the command line:
 
 ```sh
 export JAVA_HOME=/path/to/jdk-21
@@ -53,8 +76,9 @@ export JAVA_HOME=/path/to/jdk-21
 ## Tests
 
 ```sh
-./gradlew testDebugUnitTest          # 31 tests, no device needed
-./gradlew connectedDebugAndroidTest  # 15 tests, needs a device or emulator
+./gradlew testDebugUnitTest          # 63 tests, no device needed
+./gradlew connectedDebugAndroidTest  # 27 tests, needs a device or emulator
+./gradlew verifyRoborazziDebug       # screenshot comparison
 ./gradlew lintDebug
 ```
 
@@ -63,20 +87,25 @@ the JVM in milliseconds:
 
 | Class | Covers |
 | --- | --- |
-| `Trip` | Average speed from distance over time, moving vs elapsed |
+| `Trip` | Average speed from distance over time, moving vs elapsed, maximum speed |
 | `Units` | Metric/imperial conversion, fallback for unknown settings |
-| `TrackingState` | Movement gate, stale-fix timeout, speed fallback, per-trip reset |
+| `TrackingState` | Accuracy filter, movement gate, anchor holding, stale-fix timeout, per-trip reset |
+| `TripCodec` | Persisting trips, and surviving corrupt stored data |
+| `ScreenLayout` | The width breakpoint |
+| `Formatting` | Elapsed-time display |
 
-`TripTracker` is a thin adapter that supplies real locations and a real clock to
-`TrackingState`, so nothing interesting is stranded behind the platform APIs. The
-instrumented tests cover settings persistence, what the cards render, and that trip data
-survives a configuration change.
+`TripTracker` is a thin adapter supplying real locations and a real clock to
+`TrackingState`, so nothing interesting is stranded behind the platform APIs. Instrumented
+tests cover settings persistence, what the cards render, and that trip data survives a
+configuration change. Screenshot goldens in `app/src/test/screenshots` run on the JVM via
+Robolectric — re-record them with `./gradlew recordRoborazziDebug`, on the same platform CI
+compares them on.
 
-CI runs the build, unit tests and lint on every push, and the instrumented tests on
-emulators at **API 24 and 34** — the minimum and target. API 24 is there on purpose:
-`LocationListener`'s status callbacks only gained default implementations in API 30, so
-removing those overrides would throw `AbstractMethodError` on older devices and nowhere
-else.
+CI runs the build, unit tests, screenshots and lint on every push, and the instrumented
+tests on emulators at **API 24 and 34** — the minimum and target. API 24 is there on
+purpose: `LocationListener`'s status callbacks only gained default implementations in API
+30, so removing those overrides would throw `AbstractMethodError` on older devices and
+nowhere else.
 
 ## Licence
 
@@ -84,8 +113,8 @@ Released under the GNU General Public License v3.0 or later. See [LICENSE](LICEN
 
 ## Icon attribution
 
-The app icon is assembled from three icons from the Noun Project, used under
-CC BY. The originals are in `misc/logo_assets/`:
+The app icon is assembled from three icons from the Noun Project, used under CC BY. The
+originals are in `misc/logo_assets/`:
 
 * Odometer — P Thanga Vignesh
 * Satellite — Eugene Dobrik

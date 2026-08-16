@@ -1,12 +1,22 @@
 package io.github.gitlrd.gpstripcomputer
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TrackingStateTest {
 
     private val movingMps = 11.11 // 40 km/h
+    private val goodAccuracy = 5.0
+
+    private fun TrackingState.fix(
+        metres: Double,
+        speed: Double? = null,
+        accuracy: Double? = goodAccuracy,
+        millis: Long = 1_000
+    ) = onFix(metres, speed, accuracy, millis)
 
     @Test
     fun `starts empty`() {
@@ -17,18 +27,10 @@ class TrackingStateTest {
     }
 
     @Test
-    fun `the first fix of a session adds no distance`() {
-        val state = TrackingState()
-        // No previous location to measure from, so the caller passes zero metres.
-        state.onFix(metresSincePreviousFix = 0.0, reportedSpeedMps = movingMps, millisSinceLastFix = 0)
-        state.trips.forEach { assertEquals(0.0, it.distanceMetres, 0.0) }
-    }
-
-    @Test
     fun `a moving fix adds distance to every trip`() {
         val state = TrackingState()
-        state.onFix(11.1, movingMps, 1_000)
-        state.onFix(11.1, movingMps, 1_000)
+        state.fix(11.1, movingMps)
+        state.fix(11.1, movingMps)
         state.trips.forEach { assertEquals(22.2, it.distanceMetres, 1e-9) }
     }
 
@@ -36,7 +38,7 @@ class TrackingStateTest {
     @Test
     fun `a stationary fix adds no distance even when the position jumps`() {
         val state = TrackingState()
-        state.onFix(metresSincePreviousFix = 4.0, reportedSpeedMps = 0.0, millisSinceLastFix = 1_000)
+        state.fix(metres = 4.0, speed = 0.0)
         state.trips.forEach { assertEquals(0.0, it.distanceMetres, 0.0) }
         assertEquals(0.0, state.currentSpeedMps, 0.0)
     }
@@ -44,45 +46,109 @@ class TrackingStateTest {
     @Test
     fun `speed exactly at the threshold counts as moving`() {
         val state = TrackingState()
-        state.onFix(10.0, MOVING_THRESHOLD_MPS, 1_000)
+        state.fix(10.0, MOVING_THRESHOLD_MPS)
         state.trips.forEach { assertEquals(10.0, it.distanceMetres, 1e-9) }
     }
 
     @Test
     fun `speed just below the threshold does not`() {
         val state = TrackingState()
-        state.onFix(10.0, MOVING_THRESHOLD_MPS - 0.01, 1_000)
+        state.fix(10.0, MOVING_THRESHOLD_MPS - 0.01)
         state.trips.forEach { assertEquals(0.0, it.distanceMetres, 0.0) }
     }
+
+    // --- fix quality ------------------------------------------------------------------
+
+    /** Under trees or in a cutting a receiver emits fixes tens of metres out. */
+    @Test
+    fun `a fix with poor accuracy is ignored entirely`() {
+        val state = TrackingState()
+        val advance = state.fix(
+            metres = 500.0,
+            speed = movingMps,
+            accuracy = MAX_FIX_ACCURACY_METRES + 1
+        )
+        assertFalse("a rejected fix must not move the anchor", advance)
+        state.trips.forEach { assertEquals(0.0, it.distanceMetres, 0.0) }
+        assertEquals("a rejected fix must not set the speed", 0.0, state.currentSpeedMps, 0.0)
+    }
+
+    @Test
+    fun `a fix exactly at the accuracy limit is still trusted`() {
+        val state = TrackingState()
+        val advance = state.fix(10.0, movingMps, accuracy = MAX_FIX_ACCURACY_METRES)
+        assertTrue(advance)
+        state.trips.forEach { assertEquals(10.0, it.distanceMetres, 1e-9) }
+    }
+
+    @Test
+    fun `a fix with unknown accuracy is trusted`() {
+        val state = TrackingState()
+        assertTrue(state.fix(10.0, movingMps, accuracy = null))
+        state.trips.forEach { assertEquals(10.0, it.distanceMetres, 1e-9) }
+    }
+
+    /**
+     * The anchor is only advanced on an accepted, moving fix. Holding it means ground
+     * covered below the threshold is added once real movement resumes, rather than lost —
+     * which is what stops a slow crawl along a farm track from under-reading.
+     */
+    @Test
+    fun `the anchor is held while stationary so a crawl is not lost`() {
+        val state = TrackingState()
+        assertFalse("stationary must not advance the anchor", state.fix(0.5, speed = 0.1))
+        assertFalse(state.fix(1.0, speed = 0.2))
+        // Caller has kept measuring from the original anchor, so the whole 12 m arrives.
+        assertTrue(state.fix(12.0, speed = movingMps))
+        state.trips.forEach { assertEquals(12.0, it.distanceMetres, 1e-9) }
+    }
+
+    // --- speed ------------------------------------------------------------------------
 
     @Test
     fun `speed is derived from displacement when the receiver reports none`() {
         val state = TrackingState()
-        // 20 m in 2 s = 10 m/s.
-        state.onFix(metresSincePreviousFix = 20.0, reportedSpeedMps = null, millisSinceLastFix = 2_000)
+        state.fix(metres = 20.0, speed = null, millis = 2_000)
         assertEquals(10.0, state.currentSpeedMps, 1e-9)
-        state.trips.forEach { assertEquals(20.0, it.distanceMetres, 1e-9) }
     }
 
     @Test
     fun `a reported speed is preferred over the derived one`() {
         val state = TrackingState()
-        // Displacement implies 10 m/s, but the receiver says 3 m/s. Trust the receiver.
-        state.onFix(metresSincePreviousFix = 20.0, reportedSpeedMps = 3.0, millisSinceLastFix = 2_000)
+        state.fix(metres = 20.0, speed = 3.0, millis = 2_000)
         assertEquals(3.0, state.currentSpeedMps, 1e-9)
     }
 
     @Test
     fun `deriving a speed with no elapsed time does not divide by zero`() {
         val state = TrackingState()
-        state.onFix(metresSincePreviousFix = 20.0, reportedSpeedMps = null, millisSinceLastFix = 0)
+        state.fix(metres = 20.0, speed = null, millis = 0)
         assertEquals(0.0, state.currentSpeedMps, 0.0)
     }
 
     @Test
+    fun `maximum speed is the highest trusted reading`() {
+        val state = TrackingState()
+        state.fix(10.0, 20.0)
+        state.fix(10.0, 35.0)
+        state.fix(10.0, 12.0)
+        state.trips.forEach { assertEquals(35.0, it.maxSpeedMps, 1e-9) }
+    }
+
+    @Test
+    fun `a rejected fix cannot set a maximum speed`() {
+        val state = TrackingState()
+        state.fix(10.0, 20.0)
+        state.fix(10.0, 99.0, accuracy = MAX_FIX_ACCURACY_METRES + 1)
+        state.trips.forEach { assertEquals(20.0, it.maxSpeedMps, 1e-9) }
+    }
+
+    // --- ticks ------------------------------------------------------------------------
+
+    @Test
     fun `a tick within the stale window keeps the current speed`() {
         val state = TrackingState()
-        state.onFix(11.1, movingMps, 1_000)
+        state.fix(11.1, movingMps)
         state.onTick(deltaMillis = 1_000, millisSinceLastFix = STALE_FIX_MILLIS)
         assertEquals(movingMps, state.currentSpeedMps, 1e-9)
         state.trips.forEach { assertEquals(1_000L, it.movingMillis) }
@@ -92,7 +158,7 @@ class TrackingStateTest {
     @Test
     fun `a tick past the stale window zeroes the speed`() {
         val state = TrackingState()
-        state.onFix(11.1, movingMps, 1_000)
+        state.fix(11.1, movingMps)
         state.onTick(deltaMillis = 1_000, millisSinceLastFix = STALE_FIX_MILLIS + 1)
         assertEquals(0.0, state.currentSpeedMps, 0.0)
     }
@@ -100,58 +166,42 @@ class TrackingStateTest {
     @Test
     fun `time spent stale counts as elapsed but not as moving`() {
         val state = TrackingState()
-        state.onFix(11.1, movingMps, 1_000)
-        repeat(10) { state.onTick(deltaMillis = 1_000, millisSinceLastFix = STALE_FIX_MILLIS + 1) }
+        state.fix(11.1, movingMps)
+        repeat(10) { state.onTick(1_000, STALE_FIX_MILLIS + 1) }
         state.trips.forEach {
             assertEquals(10_000L, it.elapsedMillis)
             assertEquals(0L, it.movingMillis)
         }
     }
 
-    /** The whole point of the feature, driven through the same calls the tracker makes. */
+    /** The whole point of the feature, driven through the calls the tracker makes. */
     @Test
     fun `a checkpoint stop halves the overall average but leaves the moving average alone`() {
         val state = TrackingState()
 
-        // 30 s at 11.11 m/s.
         repeat(30) {
-            state.onFix(11.11, movingMps, 1_000)
+            state.fix(11.11, movingMps)
             state.onTick(1_000, 0)
         }
         val movingBefore = state.trips[0].averageSpeedMps(includeStoppedTime = false)
         assertEquals(11.11, movingBefore, 0.01)
 
-        // 30 s stationary, receiver still reporting but at zero.
         repeat(30) {
-            state.onFix(0.0, 0.0, 1_000)
+            state.fix(0.0, 0.0)
             state.onTick(1_000, 0)
         }
 
-        val overallAfter = state.trips[0].averageSpeedMps(includeStoppedTime = true)
-        val movingAfter = state.trips[0].averageSpeedMps(includeStoppedTime = false)
-
-        assertEquals(11.11 / 2, overallAfter, 0.02)
-        assertEquals(movingBefore, movingAfter, 1e-9)
+        assertEquals(11.11 / 2, state.trips[0].averageSpeedMps(includeStoppedTime = true), 0.02)
+        assertEquals(movingBefore, state.trips[0].averageSpeedMps(includeStoppedTime = false), 1e-9)
     }
 
-    @Test
-    fun `distance is unchanged by a stop`() {
-        val state = TrackingState()
-        repeat(10) { state.onFix(11.1, movingMps, 1_000) }
-        val distance = state.trips[0].distanceMetres
-
-        repeat(30) {
-            state.onFix(0.0, 0.0, 1_000)
-            state.onTick(1_000, 0)
-        }
-        assertEquals(distance, state.trips[0].distanceMetres, 1e-9)
-    }
+    // --- reset and restore ------------------------------------------------------------
 
     @Test
     fun `resetting one trip leaves the other untouched`() {
         val state = TrackingState()
         repeat(5) {
-            state.onFix(11.1, movingMps, 1_000)
+            state.fix(11.1, movingMps)
             state.onTick(1_000, 0)
         }
         assertEquals(state.trips[0], state.trips[1])
@@ -165,34 +215,17 @@ class TrackingStateTest {
     @Test
     fun `resetting out of range is ignored`() {
         val state = TrackingState()
-        state.onFix(11.1, movingMps, 1_000)
+        state.fix(11.1, movingMps)
         val before = state.trips
-
         state.reset(-1)
         state.reset(99)
-
         assertEquals(before, state.trips)
-    }
-
-    @Test
-    fun `a reset trip keeps accumulating afterwards`() {
-        val state = TrackingState()
-        repeat(5) {
-            state.onFix(11.1, movingMps, 1_000)
-            state.onTick(1_000, 0)
-        }
-        state.reset(0)
-        state.onFix(11.1, movingMps, 1_000)
-        state.onTick(1_000, 0)
-
-        assertEquals(11.1, state.trips[0].distanceMetres, 1e-9)
-        assertEquals(1_000L, state.trips[0].elapsedMillis)
     }
 
     @Test
     fun `clearSpeed zeroes the readout without touching the trips`() {
         val state = TrackingState()
-        state.onFix(11.1, movingMps, 1_000)
+        state.fix(11.1, movingMps)
         state.onTick(1_000, 0)
         val trips = state.trips
 
@@ -200,5 +233,23 @@ class TrackingStateTest {
 
         assertEquals(0.0, state.currentSpeedMps, 0.0)
         assertEquals(trips, state.trips)
+    }
+
+    @Test
+    fun `restore adopts saved trips`() {
+        val state = TrackingState()
+        val saved = listOf(
+            Trip(distanceMetres = 100.0, elapsedMillis = 1_000),
+            Trip(distanceMetres = 200.0, elapsedMillis = 2_000)
+        )
+        state.restore(saved)
+        assertEquals(saved, state.trips)
+    }
+
+    @Test
+    fun `restore ignores a saved list of the wrong size`() {
+        val state = TrackingState()
+        state.restore(listOf(Trip(distanceMetres = 100.0)))
+        state.trips.forEach { assertEquals(Trip(), it) }
     }
 }

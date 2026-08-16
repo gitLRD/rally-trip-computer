@@ -22,8 +22,16 @@ class TripDisplayTest {
     @get:Rule
     val compose = createComposeRule()
 
-    /** 1 km covered, 100 s elapsed, 50 s of it moving. Overall 10 m/s, moving 20 m/s. */
-    private val trip = Trip(distanceMetres = 1_000.0, elapsedMillis = 100_000, movingMillis = 50_000)
+    /**
+     * 1 km covered, 100 s elapsed, 50 s of it moving, peaking at 25 m/s.
+     * Overall average 10 m/s, moving average 20 m/s.
+     */
+    private val trip = Trip(
+        distanceMetres = 1_000.0,
+        elapsedMillis = 100_000,
+        movingMillis = 50_000,
+        maxSpeedMps = 25.0
+    )
 
     private fun showTrip(
         unitSystem: UnitSystem = UnitSystem.METRIC,
@@ -42,10 +50,10 @@ class TripDisplayTest {
     }
 
     @Test
-    fun showsOverallAverageAndDistanceInMetric() {
+    fun showsDistanceAndOverallAverageInMetric() {
         showTrip(UnitSystem.METRIC, includeStoppedTime = true)
-        compose.onNodeWithText("36.00 km/h").assertIsDisplayed()
         compose.onNodeWithText("1.00 km").assertIsDisplayed()
+        compose.onNodeWithText("36.00 km/h").assertIsDisplayed()
     }
 
     @Test
@@ -59,18 +67,36 @@ class TripDisplayTest {
     @Test
     fun showsImperialUnitsWhenSelected() {
         showTrip(UnitSystem.IMPERIAL, includeStoppedTime = true)
-        compose.onNodeWithText("22.37 mph").assertIsDisplayed()
         compose.onNodeWithText("0.62 mi").assertIsDisplayed()
+        compose.onNodeWithText("22.37 mph").assertIsDisplayed()
     }
 
     @Test
-    fun bothCardsInARowAreLabelledWithTheirTripNumber() {
+    fun showsTripTimeAlongsideDistance() {
+        showTrip()
+        compose.onNodeWithText("Time 1:40").assertIsDisplayed()
+    }
+
+    @Test
+    fun showsMaximumSpeedAlongsideTheAverage() {
+        showTrip(UnitSystem.METRIC)
+        compose.onNodeWithText("Max 90.00 km/h").assertIsDisplayed()
+    }
+
+    @Test
+    fun maximumSpeedConvertsWithTheUnits() {
+        showTrip(UnitSystem.IMPERIAL)
+        compose.onNodeWithText("Max 55.92 mph").assertIsDisplayed()
+    }
+
+    @Test
+    fun aTripRowHasTwoTappableCards() {
         showTrip()
         compose.onAllNodes(hasClickAction()).assertCountEquals(2)
     }
 
     @Test
-    fun tappingTheAverageCardResetsTheTrip() {
+    fun tappingTheDistanceCardResetsTheTrip() {
         var resets = 0
         showTrip(onReset = { resets++ })
         compose.onAllNodes(hasClickAction())[0].performClick()
@@ -78,7 +104,7 @@ class TripDisplayTest {
     }
 
     @Test
-    fun tappingTheDistanceCardAlsoResetsTheTrip() {
+    fun tappingTheAverageCardAlsoResetsTheTrip() {
         var resets = 0
         showTrip(onReset = { resets++ })
         compose.onAllNodes(hasClickAction())[1].performClick()
@@ -103,12 +129,13 @@ class TripDisplayTest {
             TripRow(
                 tripNumber = 1,
                 trip = Trip(),
-                unitSystem = UnitSystem.METRIC,
+                unitSystem = UnitSystem.IMPERIAL,
                 includeStoppedTime = true,
                 onReset = {}
             )
         }
-        compose.onNodeWithText("0.00 km/h").assertIsDisplayed()
-        compose.onNodeWithText("0.00 km").assertIsDisplayed()
+        compose.onNodeWithText("0.00 mi").assertIsDisplayed()
+        compose.onNodeWithText("0.00 mph").assertIsDisplayed()
+        compose.onNodeWithText("Time 0:00").assertIsDisplayed()
     }
 }
