@@ -29,9 +29,14 @@ enum class UnitSystem(
     IMPERIAL("imperial", SpeedUnit.MILES_PER_HOUR, DistanceUnit.MILES);
 
     companion object {
-        /** Unrecognised or missing values fall back to metric. */
+        /**
+         * Imperial by default: the app is built for UK road rallying, where roadbooks and
+         * every other trip meter in the car are in miles.
+         */
+        val DEFAULT = IMPERIAL
+
         fun fromKey(key: String?): UnitSystem =
-            entries.firstOrNull { it.key == key } ?: METRIC
+            entries.firstOrNull { it.key == key } ?: DEFAULT
     }
 }
 

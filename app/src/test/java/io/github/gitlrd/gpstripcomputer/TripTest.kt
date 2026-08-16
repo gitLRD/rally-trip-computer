@@ -71,9 +71,25 @@ class TripTest {
     }
 
     @Test
+    fun `maximum speed only ever climbs`() {
+        var trip = Trip()
+        assertEquals(0.0, trip.maxSpeedMps, 0.0)
+
+        trip = trip.withSpeedSample(12.0)
+        assertEquals(12.0, trip.maxSpeedMps, 1e-9)
+
+        trip = trip.withSpeedSample(5.0)
+        assertEquals("a slower sample must not lower it", 12.0, trip.maxSpeedMps, 1e-9)
+
+        trip = trip.withSpeedSample(30.5)
+        assertEquals(30.5, trip.maxSpeedMps, 1e-9)
+    }
+
+    @Test
     fun `a reset trip is empty`() {
         assertEquals(0.0, Trip().distanceMetres, 0.0)
         assertEquals(0L, Trip().elapsedMillis)
         assertEquals(0L, Trip().movingMillis)
+        assertEquals(0.0, Trip().maxSpeedMps, 0.0)
     }
 }

@@ -5,22 +5,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 
 /**
- * Holds everything that must outlive the Activity.
+ * Holds the display settings and exposes the process-wide tracker to the UI.
  *
- * Trips used to live in MainActivity, so rotating the device threw away the journey so far
- * and restarted tracking. A ViewModel survives configuration changes, which is the whole
- * reason this class exists.
- *
- * The application context is deliberate: the tracker outlives any single Activity, so
- * holding an Activity context here would leak it.
+ * Trips deliberately do not live here. They belong to [TripComputerApplication] so that
+ * [TrackingService] can keep them running with no Activity present at all; the ViewModel's
+ * own job is to survive configuration changes — rotating, and unfolding a foldable.
  */
 class TripComputerViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val settings = Settings(application)
-    private val tracker = TripTracker(application, viewModelScope)
+    private val app get() = getApplication<TripComputerApplication>()
+    private val settings get() = app.settings
+    private val tracker get() = app.tracker
 
     val trips: List<Trip> get() = tracker.trips
     val currentSpeedMps: Double get() = tracker.currentSpeedMps
@@ -30,6 +27,12 @@ class TripComputerViewModel(application: Application) : AndroidViewModel(applica
         private set
 
     var includeStoppedTime by mutableStateOf(settings.includeStoppedTime)
+        private set
+
+    var themeMode by mutableStateOf(settings.themeMode)
+        private set
+
+    var screenBrightness by mutableStateOf(settings.screenBrightness)
         private set
 
     fun onUnitSystemSelected(value: UnitSystem) {
@@ -42,16 +45,31 @@ class TripComputerViewModel(application: Application) : AndroidViewModel(applica
         settings.includeStoppedTime = value
     }
 
+    fun onThemeModeSelected(value: ThemeMode) {
+        themeMode = value
+        settings.themeMode = value
+    }
+
+    fun onScreenBrightnessChanged(value: Float) {
+        screenBrightness = value
+        settings.screenBrightness = value
+    }
+
     fun hasLocationPermission(): Boolean = tracker.hasLocationPermission()
 
-    fun startTracking() = tracker.start()
+    /** True when the user left tracking running last time, so launching should resume it. */
+    val shouldResumeTracking: Boolean get() = settings.trackingEnabled
 
-    fun stopTracking() = tracker.stop()
+    /** Tracking runs in the service so it survives the app going to the background. */
+    fun startTracking() {
+        settings.trackingEnabled = true
+        TrackingService.start(app)
+    }
+
+    fun stopTracking() {
+        settings.trackingEnabled = false
+        TrackingService.stop(app)
+    }
 
     fun resetTrip(index: Int) = tracker.resetTrip(index)
-
-    override fun onCleared() {
-        tracker.stop()
-        super.onCleared()
-    }
 }

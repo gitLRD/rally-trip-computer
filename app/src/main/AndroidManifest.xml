@@ -3,12 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-      Foreground use only. There is deliberately no ACCESS_BACKGROUND_LOCATION: the app
-      holds the screen on while tracking and stops when it is closed, so it has no use
-      for background location and should not ask for it.
+      There is deliberately no ACCESS_BACKGROUND_LOCATION. Tracking continues in the
+      background through a foreground service of type "location", which does not need it,
+      and which cannot run without an ongoing notification the user can see and stop.
     -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Tracking continues with the app in the background, but only while the user has
+         switched it on, and always with an ongoing notification showing. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Declared, but not required, so the app still installs on devices without GPS -->
     <uses-feature
@@ -16,6 +22,7 @@
         android:required="false" />
 
     <application
+        android:name=".TripComputerApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -36,6 +43,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".TrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
     </application>
 
 </manifest>

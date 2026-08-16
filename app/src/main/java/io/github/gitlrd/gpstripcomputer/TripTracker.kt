@@ -21,16 +21,27 @@ import kotlinx.coroutines.launch
 private const val TICK_MILLIS = 1000L
 private const val FIX_INTERVAL_MILLIS = 1000L
 
+/** Trips are written to storage this often while tracking, rather than on every tick. */
+private const val SAVE_EVERY_TICKS = 5
+
 /**
  * Drives [TrackingState] from the platform location provider and republishes it as Compose
  * state. All the decisions live in [TrackingState]; this class only supplies real
- * locations and a real clock, so that the logic can be tested without either.
+ * locations and a real clock, so the logic can be tested without either.
+ *
+ * One of these exists per process, owned by [TripComputerApplication], because tracking has
+ * to outlive both the Activity and the ViewModel while the foreground service is running.
  */
 class TripTracker(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val settings: Settings,
     private val state: TrackingState = TrackingState()
 ) {
+    init {
+        state.restore(settings.loadTrips(state.trips.size))
+    }
+
     var trips by mutableStateOf(state.trips)
         private set
 
@@ -45,8 +56,12 @@ class TripTracker(
 
     private var listener: LocationListener? = null
     private var tickerJob: Job? = null
-    private var previousLocation: Location? = null
+
+    /** The last fix trusted enough to measure from. Held put when a fix is rejected. */
+    private var anchor: Location? = null
+    private var anchorAt = 0L
     private var lastFixAt = 0L
+    private var ticksSinceSave = 0
 
     fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -55,8 +70,9 @@ class TripTracker(
     fun start() {
         if (isTracking || !hasLocationPermission()) return
 
-        previousLocation = null
-        lastFixAt = SystemClock.elapsedRealtime()
+        anchor = null
+        anchorAt = SystemClock.elapsedRealtime()
+        lastFixAt = anchorAt
 
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) = onFix(location)
@@ -67,6 +83,7 @@ class TripTracker(
             override fun onProviderEnabled(provider: String) = Unit
             override fun onProviderDisabled(provider: String) = Unit
         }
+
         try {
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
@@ -88,6 +105,11 @@ class TripTracker(
                 state.onTick(deltaMillis = now - lastTick, millisSinceLastFix = now - lastFixAt)
                 lastTick = now
                 publish()
+
+                if (++ticksSinceSave >= SAVE_EVERY_TICKS) {
+                    ticksSinceSave = 0
+                    settings.saveTrips(state.trips)
+                }
             }
         }
 
@@ -99,29 +121,35 @@ class TripTracker(
         listener = null
         tickerJob?.cancel()
         tickerJob = null
-        previousLocation = null
+        anchor = null
         state.clearSpeed()
         publish()
+        settings.saveTrips(state.trips)
         isTracking = false
     }
 
     fun resetTrip(index: Int) {
         state.reset(index)
         publish()
+        settings.saveTrips(state.trips)
     }
 
     private fun onFix(location: Location) {
-        val previous = previousLocation
         val now = SystemClock.elapsedRealtime()
+        val measuredFrom = anchor
 
-        state.onFix(
-            metresSincePreviousFix = previous?.distanceTo(location)?.toDouble() ?: 0.0,
+        val advanceAnchor = state.onFix(
+            metresSinceAnchor = measuredFrom?.distanceTo(location)?.toDouble() ?: 0.0,
             reportedSpeedMps = if (location.hasSpeed()) location.speed.toDouble() else null,
-            millisSinceLastFix = now - lastFixAt
+            accuracyMetres = if (location.hasAccuracy()) location.accuracy.toDouble() else null,
+            millisSinceAnchor = now - anchorAt
         )
 
         lastFixAt = now
-        previousLocation = location
+        if (measuredFrom == null || advanceAnchor) {
+            anchor = location
+            anchorAt = now
+        }
         publish()
     }
 

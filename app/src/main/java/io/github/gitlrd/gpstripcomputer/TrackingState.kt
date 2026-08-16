@@ -4,15 +4,32 @@ package io.github.gitlrd.gpstripcomputer
 const val STALE_FIX_MILLIS = 5000L
 
 /**
+ * Fixes reporting worse horizontal accuracy than this are not trusted to measure distance.
+ * Under tree cover, in cuttings and between buildings a receiver will happily emit fixes
+ * tens of metres out; on a road rally those turn into distance that was never driven.
+ */
+const val MAX_FIX_ACCURACY_METRES = 25.0
+
+/**
+ * A fix whose implied speed exceeds the reported speed by more than this is treated as the
+ * receiver having jumped rather than the car having moved — multipath, or re-acquisition
+ * after a tunnel. The position is adopted, but the leap is not counted as distance.
+ *
+ * The floor keeps the check from firing on ordinary jitter while barely moving.
+ */
+const val JUMP_TOLERANCE_FACTOR = 3.0
+const val JUMP_TOLERANCE_FLOOR_MPS = 5.0
+
+/**
  * Every decision tracking makes, with no dependency on Android or on a clock — the caller
  * supplies elapsed times. [TripTracker] is the adapter that feeds this from a real
  * [android.location.LocationManager].
  *
  * Distance and time deliberately advance through different paths. Distance advances only
- * on a fix, and only while the receiver reports genuine movement, because a stationary GPS
- * jitters by several metres a second and would otherwise clock up distance while parked.
- * Time advances on a tick whether or not fixes are arriving, so a stop during which the
- * receiver goes quiet is still visible to the average.
+ * on a trusted fix showing genuine movement, because a stationary GPS jitters by several
+ * metres a second and would otherwise clock up distance while parked. Time advances on a
+ * tick whether or not fixes are arriving, so a stop during which the receiver goes quiet
+ * is still visible to the average.
  */
 class TrackingState(tripCount: Int = 2) {
 
@@ -23,22 +40,40 @@ class TrackingState(tripCount: Int = 2) {
         private set
 
     /**
-     * @param metresSincePreviousFix straight-line distance from the previous fix, or 0 for
-     *   the first fix of a session.
+     * @param metresSinceAnchor straight-line distance from the last accepted fix, or 0 when
+     *   there is not one yet.
      * @param reportedSpeedMps the receiver's own speed, or null if it did not supply one.
-     * @param millisSinceLastFix used only to derive a speed when [reportedSpeedMps] is null.
+     * @param accuracyMetres reported horizontal accuracy, or null if unknown.
+     * @param millisSinceAnchor time since that anchor fix, not since the last fix — the
+     *   anchor may be several fixes old, and the implied speed must be measured over the
+     *   same interval as the distance.
+     * @return whether the caller should move its measuring anchor to this fix. When false
+     *   the anchor stays put, so ground covered in the meantime is added on a later fix
+     *   rather than being lost — which is what keeps a slow crawl from under-reading.
      */
     fun onFix(
-        metresSincePreviousFix: Double,
+        metresSinceAnchor: Double,
         reportedSpeedMps: Double?,
-        millisSinceLastFix: Long
-    ) {
-        currentSpeedMps =
-            reportedSpeedMps ?: derivedSpeed(metresSincePreviousFix, millisSinceLastFix)
+        accuracyMetres: Double?,
+        millisSinceAnchor: Long
+    ): Boolean {
+        if (accuracyMetres != null && accuracyMetres > MAX_FIX_ACCURACY_METRES) return false
 
-        if (currentSpeedMps >= MOVING_THRESHOLD_MPS) {
-            trips = trips.map { it.plusDistance(metresSincePreviousFix) }
-        }
+        val impliedSpeed = derivedSpeed(metresSinceAnchor, millisSinceAnchor)
+        val speed = reportedSpeedMps ?: impliedSpeed
+
+        currentSpeedMps = speed
+        trips = trips.map { it.withSpeedSample(speed) }
+
+        val jumped = reportedSpeedMps != null &&
+            impliedSpeed > reportedSpeedMps * JUMP_TOLERANCE_FACTOR + JUMP_TOLERANCE_FLOOR_MPS
+        // Adopt the new position so later fixes measure from it, but do not bank the leap.
+        if (jumped) return true
+
+        if (speed < MOVING_THRESHOLD_MPS) return false
+
+        trips = trips.map { it.plusDistance(metresSinceAnchor) }
+        return true
     }
 
     fun onTick(deltaMillis: Long, millisSinceLastFix: Long) {
@@ -55,6 +90,10 @@ class TrackingState(tripCount: Int = 2) {
         currentSpeedMps = 0.0
     }
 
-    private fun derivedSpeed(metres: Double, millisSinceLastFix: Long): Double =
-        if (millisSinceLastFix <= 0L) 0.0 else metres / (millisSinceLastFix / 1000.0)
+    fun restore(saved: List<Trip>) {
+        if (saved.size == trips.size) trips = saved
+    }
+
+    private fun derivedSpeed(metres: Double, millis: Long): Double =
+        if (millis <= 0L) 0.0 else metres / (millis / 1000.0)
 }

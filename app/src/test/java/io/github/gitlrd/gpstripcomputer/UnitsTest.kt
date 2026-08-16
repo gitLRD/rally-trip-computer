@@ -39,11 +39,13 @@ class UnitsTest {
         assertEquals(DistanceUnit.MILES, UnitSystem.IMPERIAL.distanceUnit)
     }
 
+    /** Imperial by default: UK road-rally roadbooks are in miles. */
     @Test
-    fun `unknown or missing unit keys fall back to metric`() {
+    fun `unknown or missing unit keys fall back to the default`() {
+        assertEquals(UnitSystem.IMPERIAL, UnitSystem.DEFAULT)
         assertEquals(UnitSystem.METRIC, UnitSystem.fromKey("metric"))
         assertEquals(UnitSystem.IMPERIAL, UnitSystem.fromKey("imperial"))
-        assertEquals(UnitSystem.METRIC, UnitSystem.fromKey(null))
-        assertEquals(UnitSystem.METRIC, UnitSystem.fromKey("nonsense"))
+        assertEquals(UnitSystem.DEFAULT, UnitSystem.fromKey(null))
+        assertEquals(UnitSystem.DEFAULT, UnitSystem.fromKey("nonsense"))
     }
 }

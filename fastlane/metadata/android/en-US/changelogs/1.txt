@@ -1,7 +1,12 @@
 First release.
 
 * Two independent trip computers plus a live speed readout
-* Average speed derived from distance over time, with a setting to include or
-  exclude time spent stopped
+* Distance, average speed, elapsed time and maximum speed per trip
+* Average speed from distance over time, with a setting to include or exclude
+  time spent stopped
+* Poor-accuracy fixes discarded, and no distance clocked up while stationary
+* Keeps recording in the background with an ongoing notification
+* Trips saved as you go and restored on launch
 * Metric and imperial units
-* Light and dark themes
+* Light, dark and red-on-black night themes, with a brightness control
+* Layout adapts to foldables, tablets and split-screen

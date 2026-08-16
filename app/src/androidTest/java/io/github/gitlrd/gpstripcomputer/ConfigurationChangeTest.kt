@@ -1,46 +1,53 @@
 package io.github.gitlrd.gpstripcomputer
 
 import android.Manifest
+import android.content.Context
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.rule.GrantPermissionRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Trip data used to live in the Activity, so rotating the device threw away the journey so
- * far and restarted tracking. It now lives in a ViewModel; this pins that down.
+ * Trip data used to live in the Activity, so rotating — and, more to the point, unfolding a
+ * foldable — threw away the journey so far and restarted tracking. It now lives in the
+ * Application, with display settings in a ViewModel. This pins both down.
  */
 @RunWith(AndroidJUnit4::class)
 class ConfigurationChangeTest {
 
+    /**
+     * GrantPermissionRule rather than UiAutomation.grantRuntimePermission, which only
+     * exists from API 28 and threw NoSuchMethodError on the API 24 leg of CI.
+     */
+    @get:Rule
+    val permission: GrantPermissionRule =
+        GrantPermissionRule.grant(Manifest.permission.ACCESS_FINE_LOCATION)
+
     @Before
-    fun grantLocationPermission() {
-        // Otherwise launching the Activity raises the runtime permission dialog and blocks.
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        instrumentation.uiAutomation.grantRuntimePermission(
-            instrumentation.targetContext.packageName,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
+    fun clearSettings() {
+        InstrumentationRegistry.getInstrumentation().targetContext
+            .getSharedPreferences(Settings.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
     }
 
     @Test
-    fun theViewModelAndItsTripsSurviveRecreation() {
+    fun theViewModelSurvivesRecreation() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             lateinit var before: TripComputerViewModel
             scenario.onActivity {
                 before = ViewModelProvider(it)[TripComputerViewModel::class.java]
             }
-            before.onUnitSystemSelected(UnitSystem.IMPERIAL)
-
-            // Let the tracker's tick put something on the clock, so that a reset would show.
-            val elapsedBefore = awaitElapsedTime(before)
-            assertTrue("expected the tracker to have started ticking", elapsedBefore > 0)
+            before.onUnitSystemSelected(UnitSystem.METRIC)
+            before.onThemeModeSelected(ThemeMode.NIGHT)
 
             scenario.recreate()
 
@@ -49,30 +56,10 @@ class ConfigurationChangeTest {
                 after = ViewModelProvider(it)[TripComputerViewModel::class.java]
             }
 
-            // Same instance means neither the trips nor the tracking were torn down.
             assertSame(before, after)
-            // Tracking carries on across the recreation, so elapsed time may have advanced
-            // further. What matters is that it did not go back to zero.
-            assertTrue(
-                "elapsed time went backwards across recreation",
-                after.trips[0].elapsedMillis >= elapsedBefore
-            )
-            assertEquals(UnitSystem.IMPERIAL, after.unitSystem)
+            assertEquals(UnitSystem.METRIC, after.unitSystem)
+            assertEquals(ThemeMode.NIGHT, after.themeMode)
         }
-    }
-
-    /** Waits for the one-second tick to register, returning the elapsed time it saw. */
-    private fun awaitElapsedTime(
-        viewModel: TripComputerViewModel,
-        timeoutMillis: Long = 5_000
-    ): Long {
-        val deadline = System.currentTimeMillis() + timeoutMillis
-        while (System.currentTimeMillis() < deadline) {
-            val elapsed = viewModel.trips[0].elapsedMillis
-            if (elapsed > 0) return elapsed
-            Thread.sleep(100)
-        }
-        return viewModel.trips[0].elapsedMillis
     }
 
     @Test
@@ -89,6 +76,37 @@ class ConfigurationChangeTest {
             scenario.onActivity {
                 val after = ViewModelProvider(it)[TripComputerViewModel::class.java]
                 assertEquals(false, after.includeStoppedTime)
+            }
+        }
+    }
+
+    /**
+     * The tracker is process-scoped precisely so the foreground service can keep it running
+     * with no Activity present. Recreating the Activity must not discard its trips.
+     */
+    @Test
+    fun theTrackerOutlivesTheActivity() {
+        val application = InstrumentationRegistry.getInstrumentation()
+            .targetContext.applicationContext as TripComputerApplication
+        val tracker = application.tracker
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val tripsBefore = tracker.trips
+
+            scenario.recreate()
+
+            assertSame(tracker, application.tracker)
+            assertEquals(tripsBefore, application.tracker.trips)
+        }
+    }
+
+    /** A casual launch must not silently begin background location recording. */
+    @Test
+    fun launchingDoesNotStartTrackingUnlessItWasLeftOn() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                val viewModel = ViewModelProvider(it)[TripComputerViewModel::class.java]
+                assertEquals(false, viewModel.shouldResumeTracking)
             }
         }
     }

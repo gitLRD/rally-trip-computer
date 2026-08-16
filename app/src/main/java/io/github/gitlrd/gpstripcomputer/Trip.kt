@@ -2,7 +2,10 @@ package io.github.gitlrd.gpstripcomputer
 
 /**
  * Speeds at or above this count as "moving" (0.5 m/s is about 1.8 km/h). Below it the
- * reading is treated as GPS jitter while stationary rather than genuine movement.
+ * reading is treated as a stationary receiver jittering rather than genuine movement.
+ *
+ * Nothing is lost below the threshold: the tracker holds its measuring anchor where it is,
+ * so distance covered while crawling is added as soon as real movement resumes.
  */
 const val MOVING_THRESHOLD_MPS = 0.5
 
@@ -10,17 +13,18 @@ const val MOVING_THRESHOLD_MPS = 0.5
  * A single trip computer.
  *
  * Average speed is derived from distance over time rather than by averaging the individual
- * GPS speed readings — a sample mean is biased by however often the receiver happens to
- * report, and cannot account for time spent stopped.
+ * GPS speed readings — a sample mean is biased by however often the receiver reports, and
+ * cannot account for time spent stopped.
  *
- * Distance and time accumulate separately: distance advances when a new fix arrives,
- * time advances on a fixed tick. That keeps a long stop (during which the GPS may send
- * nothing at all) from being invisible to the average.
+ * Distance and time accumulate separately: distance advances when a fix arrives, time
+ * advances on a fixed tick. That keeps a long stop, during which the receiver may send
+ * nothing at all, from being invisible to the average.
  */
 data class Trip(
     val distanceMetres: Double = 0.0,
     val elapsedMillis: Long = 0L,
-    val movingMillis: Long = 0L
+    val movingMillis: Long = 0L,
+    val maxSpeedMps: Double = 0.0
 ) {
     /**
      * @param includeStoppedTime when true, divides by total elapsed time so stops drag the
@@ -43,4 +47,7 @@ data class Trip(
             movingMillis = movingMillis + if (moving) millis else 0L
         )
     }
+
+    fun withSpeedSample(speedMps: Double): Trip =
+        if (speedMps > maxSpeedMps) copy(maxSpeedMps = speedMps) else this
 }
