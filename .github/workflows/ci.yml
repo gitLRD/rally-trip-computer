@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # Every branch, not just main: this is a solo repo where work is often merged
+  # straight to main, so a branch that has never been checked is no use.
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
