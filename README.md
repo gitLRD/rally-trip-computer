@@ -1,5 +1,7 @@
 # GPS Trip Computer
 
+[![CI](https://github.com/gitLRD/gps-trip-computer-app/actions/workflows/ci.yml/badge.svg)](https://github.com/gitLRD/gps-trip-computer-app/actions/workflows/ci.yml)
+
 A small Android trip computer. It shows a live speed readout and two independent
 trip computers, each recording distance and average speed, using nothing but the
 device's GPS receiver.
@@ -23,6 +25,19 @@ The **Include stopped time** setting chooses which time to divide by:
 Distance only accumulates while the receiver reports genuine movement, so a
 stationary GPS jittering by a few metres does not clock up phantom distance.
 
+## Screen sizes and foldables
+
+The layout is chosen from the width of the window it is given, not from the device, so it
+follows folding, rotation and multi-window resizing alike:
+
+| Window width | Layout |
+| --- | --- |
+| Under 600dp — handset portrait, or a folded cover screen | Trips stacked, speed readout beneath |
+| 600dp and over — unfolded inner screen, tablet, landscape | Trips in a left column, speed readout alongside |
+
+Trip data lives in a `ViewModel`, so unfolding the device — which is a configuration change
+like any other — does not restart tracking or discard the journey so far.
+
 ## Building
 
 The project needs a JDK 17 or 21. It will **not** build with the JDK 25 bundled
@@ -35,12 +50,33 @@ export JAVA_HOME=/path/to/jdk-21
 ./gradlew assembleDebug
 ```
 
-Tests:
+## Tests
 
 ```sh
-./gradlew testDebugUnitTest        # trip and unit-conversion logic, no device needed
-./gradlew connectedDebugAndroidTest # settings persistence, needs a device or emulator
+./gradlew testDebugUnitTest          # 31 tests, no device needed
+./gradlew connectedDebugAndroidTest  # 15 tests, needs a device or emulator
+./gradlew lintDebug
 ```
+
+The logic that matters is deliberately kept free of Android types so it can be tested on
+the JVM in milliseconds:
+
+| Class | Covers |
+| --- | --- |
+| `Trip` | Average speed from distance over time, moving vs elapsed |
+| `Units` | Metric/imperial conversion, fallback for unknown settings |
+| `TrackingState` | Movement gate, stale-fix timeout, speed fallback, per-trip reset |
+
+`TripTracker` is a thin adapter that supplies real locations and a real clock to
+`TrackingState`, so nothing interesting is stranded behind the platform APIs. The
+instrumented tests cover settings persistence, what the cards render, and that trip data
+survives a configuration change.
+
+CI runs the build, unit tests and lint on every push, and the instrumented tests on
+emulators at **API 24 and 34** — the minimum and target. API 24 is there on purpose:
+`LocationListener`'s status callbacks only gained default implementations in API 30, so
+removing those overrides would throw `AbstractMethodError` on older devices and nowhere
+else.
 
 ## Licence
 
