@@ -9,7 +9,6 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
@@ -22,24 +21,20 @@ import kotlinx.coroutines.launch
 private const val TICK_MILLIS = 1000L
 private const val FIX_INTERVAL_MILLIS = 1000L
 
-/** With no fix for this long, assume we have lost signal and show zero rather than a stale speed. */
-private const val STALE_FIX_MILLIS = 5000L
-
 /**
- * Owns the location subscription and the trip state.
- *
- * Distance is only accumulated while the receiver reports genuine movement — a stationary
- * GPS still jitters by several metres a second, which would otherwise clock up phantom
- * distance while parked. Time, by contrast, accumulates on a steady tick regardless of
- * whether fixes are arriving, so a long stop is visible to the average-speed calculation.
+ * Drives [TrackingState] from the platform location provider and republishes it as Compose
+ * state. All the decisions live in [TrackingState]; this class only supplies real
+ * locations and a real clock, so that the logic can be tested without either.
  */
 class TripTracker(
     private val context: Context,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val state: TrackingState = TrackingState()
 ) {
-    val trips = mutableStateListOf(Trip(), Trip())
+    var trips by mutableStateOf(state.trips)
+        private set
 
-    var currentSpeedMps by mutableStateOf(0.0)
+    var currentSpeedMps by mutableStateOf(state.currentSpeedMps)
         private set
 
     var isTracking by mutableStateOf(false)
@@ -64,9 +59,7 @@ class TripTracker(
         lastFixAt = SystemClock.elapsedRealtime()
 
         val locationListener = object : LocationListener {
-            override fun onLocationChanged(location: Location) {
-                onFix(location)
-            }
+            override fun onLocationChanged(location: Location) = onFix(location)
 
             // Required below API 30, where these have no default implementation.
             @Deprecated("Deprecated in Java", ReplaceWith(""))
@@ -74,28 +67,27 @@ class TripTracker(
             override fun onProviderEnabled(provider: String) = Unit
             override fun onProviderDisabled(provider: String) = Unit
         }
+        try {
+            locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                FIX_INTERVAL_MILLIS,
+                0f,
+                locationListener
+            )
+        } catch (revoked: SecurityException) {
+            // Permission can be taken away between the check above and this call.
+            return
+        }
         listener = locationListener
-
-        locationManager.requestLocationUpdates(
-            LocationManager.GPS_PROVIDER,
-            FIX_INTERVAL_MILLIS,
-            0f,
-            locationListener
-        )
 
         tickerJob = scope.launch {
             var lastTick = SystemClock.elapsedRealtime()
             while (isActive) {
                 delay(TICK_MILLIS)
                 val now = SystemClock.elapsedRealtime()
-                val delta = now - lastTick
+                state.onTick(deltaMillis = now - lastTick, millisSinceLastFix = now - lastFixAt)
                 lastTick = now
-
-                if (now - lastFixAt > STALE_FIX_MILLIS) currentSpeedMps = 0.0
-
-                for (i in trips.indices) {
-                    trips[i] = trips[i].plusTime(delta, currentSpeedMps)
-                }
+                publish()
             }
         }
 
@@ -108,34 +100,33 @@ class TripTracker(
         tickerJob?.cancel()
         tickerJob = null
         previousLocation = null
-        currentSpeedMps = 0.0
+        state.clearSpeed()
+        publish()
         isTracking = false
     }
 
     fun resetTrip(index: Int) {
-        if (index in trips.indices) trips[index] = Trip()
+        state.reset(index)
+        publish()
     }
 
     private fun onFix(location: Location) {
         val previous = previousLocation
-        val metres = previous?.distanceTo(location)?.toDouble() ?: 0.0
-        val secondsSinceFix = (SystemClock.elapsedRealtime() - lastFixAt) / 1000.0
+        val now = SystemClock.elapsedRealtime()
 
-        // Not every device populates speed; fall back to distance over time.
-        val speed = when {
-            location.hasSpeed() -> location.speed.toDouble()
-            previous != null && secondsSinceFix > 0.0 -> metres / secondsSinceFix
-            else -> 0.0
-        }
+        state.onFix(
+            metresSincePreviousFix = previous?.distanceTo(location)?.toDouble() ?: 0.0,
+            reportedSpeedMps = if (location.hasSpeed()) location.speed.toDouble() else null,
+            millisSinceLastFix = now - lastFixAt
+        )
 
-        currentSpeedMps = speed
-        lastFixAt = SystemClock.elapsedRealtime()
-
-        if (speed >= MOVING_THRESHOLD_MPS) {
-            for (i in trips.indices) {
-                trips[i] = trips[i].plusDistance(metres)
-            }
-        }
+        lastFixAt = now
         previousLocation = location
+        publish()
+    }
+
+    private fun publish() {
+        trips = state.trips
+        currentSpeedMps = state.currentSpeedMps
     }
 }
