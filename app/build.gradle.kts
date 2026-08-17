@@ -61,6 +61,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // For BuildConfig.DEBUG, which gates the GNSS fix-rate logging in TripTracker.
+        buildConfig = true
     }
     testOptions {
         unitTests {
