@@ -17,4 +17,8 @@ class TripComputerApplication : Application() {
     val settings: Settings by lazy { Settings(this) }
 
     val tracker: TripTracker by lazy { TripTracker(this, scope, settings) }
+
+    /** Owned by the process for the same reason as the tracker: a timing must outlive the
+     * Activity, so unfolding the phone mid-regularity cannot reset it. */
+    val stopwatches: StopwatchBank by lazy { StopwatchBank(settings) }
 }

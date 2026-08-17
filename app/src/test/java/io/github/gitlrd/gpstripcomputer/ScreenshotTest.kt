@@ -83,6 +83,7 @@ class ScreenshotTest {
                 trip = trip,
                 unitSystem = UnitSystem.IMPERIAL,
                 includeStoppedTime = true,
+                rallyMode = RallyMode.STANDARD,
                 onReset = {}
             )
         }
@@ -96,6 +97,7 @@ class ScreenshotTest {
                 trip = trip,
                 unitSystem = UnitSystem.METRIC,
                 includeStoppedTime = true,
+                rallyMode = RallyMode.STANDARD,
                 onReset = {}
             )
         }
@@ -110,6 +112,7 @@ class ScreenshotTest {
                 trip = trip,
                 unitSystem = UnitSystem.IMPERIAL,
                 includeStoppedTime = true,
+                rallyMode = RallyMode.STANDARD,
                 onReset = {}
             )
         }
@@ -123,7 +126,74 @@ class ScreenshotTest {
                 trip = trip,
                 unitSystem = UnitSystem.IMPERIAL,
                 includeStoppedTime = false,
+                rallyMode = RallyMode.STANDARD,
                 onReset = {}
+            )
+        }
+    }
+
+    // --- regularity mode ----------------------------------------------------------------
+
+    /** No average speed anywhere on the row: a stopwatch, and max speed moved to the left. */
+    @Test
+    fun tripRowRegularityRunning() {
+        capture("trip_row_regularity_running") {
+            TripRow(
+                tripNumber = 1,
+                trip = trip,
+                unitSystem = UnitSystem.IMPERIAL,
+                includeStoppedTime = true,
+                rallyMode = RallyMode.REGULARITY,
+                onReset = {},
+                stopwatchMillis = 271_200,
+                stopwatchRunning = true
+            )
+        }
+    }
+
+    @Test
+    fun tripRowRegularityStopped() {
+        capture("trip_row_regularity_stopped") {
+            TripRow(
+                tripNumber = 2,
+                trip = trip,
+                unitSystem = UnitSystem.IMPERIAL,
+                includeStoppedTime = true,
+                rallyMode = RallyMode.REGULARITY,
+                onReset = {},
+                stopwatchMillis = 271_200,
+                stopwatchRunning = false
+            )
+        }
+    }
+
+    /** Fresh into regularity mode: the hint is what tells you how the card works. */
+    @Test
+    fun tripRowRegularityCleared() {
+        capture("trip_row_regularity_cleared") {
+            TripRow(
+                tripNumber = 1,
+                trip = Trip(),
+                unitSystem = UnitSystem.IMPERIAL,
+                includeStoppedTime = true,
+                rallyMode = RallyMode.REGULARITY,
+                onReset = {}
+            )
+        }
+    }
+
+    @Test
+    fun tripRowRegularityNightMode() {
+        capture("trip_row_regularity_night", themeMode = ThemeMode.NIGHT) {
+            TripRow(
+                tripNumber = 1,
+                trip = trip,
+                unitSystem = UnitSystem.IMPERIAL,
+                includeStoppedTime = true,
+                rallyMode = RallyMode.REGULARITY,
+                onReset = {},
+                stopwatchMillis = 271_200,
+                stopwatchRunning = true
             )
         }
     }
@@ -150,6 +220,7 @@ class ScreenshotTest {
                 trip = Trip(),
                 unitSystem = UnitSystem.IMPERIAL,
                 includeStoppedTime = true,
+                rallyMode = RallyMode.STANDARD,
                 onReset = {}
             )
         }

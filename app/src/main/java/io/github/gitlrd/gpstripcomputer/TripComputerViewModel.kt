@@ -18,10 +18,23 @@ class TripComputerViewModel(application: Application) : AndroidViewModel(applica
     private val app get() = getApplication<TripComputerApplication>()
     private val settings get() = app.settings
     private val tracker get() = app.tracker
+    private val stopwatchBank get() = app.stopwatches
 
     val trips: List<Trip> get() = tracker.trips
     val currentSpeedMps: Double get() = tracker.currentSpeedMps
     val isTracking: Boolean get() = tracker.isTracking
+
+    val stopwatches: List<Stopwatch> get() = stopwatchBank.stopwatches
+    val anyStopwatchRunning: Boolean get() = stopwatchBank.anyRunning
+
+    fun stopwatchElapsed(index: Int, nowRealtime: Long): Long =
+        stopwatchBank.elapsedAt(index, nowRealtime)
+
+    fun stopwatchNow(): Long = stopwatchBank.now()
+
+    fun onStopwatchTapped(index: Int) = stopwatchBank.toggle(index)
+
+    fun onStopwatchHeld(index: Int) = stopwatchBank.clear(index)
 
     var unitSystem by mutableStateOf(settings.unitSystem)
         private set
@@ -30,6 +43,9 @@ class TripComputerViewModel(application: Application) : AndroidViewModel(applica
         private set
 
     var themeMode by mutableStateOf(settings.themeMode)
+        private set
+
+    var rallyMode by mutableStateOf(settings.rallyMode)
         private set
 
     var screenBrightness by mutableStateOf(settings.screenBrightness)
@@ -43,6 +59,22 @@ class TripComputerViewModel(application: Application) : AndroidViewModel(applica
     fun onIncludeStoppedTimeChanged(value: Boolean) {
         includeStoppedTime = value
         settings.includeStoppedTime = value
+    }
+
+    /**
+     * Changing rally mode wipes every trip and every stopwatch, in both directions.
+     *
+     * Not a nicety. A regularity's regulations forbid carrying an average speed computer,
+     * and a mode that merely hid the average would leave one running behind a toggle. The
+     * numbers have to be genuinely gone, and visibly so — including on the way back out of
+     * regularity mode, so nobody can bank a timing and switch away to keep it.
+     */
+    fun onRallyModeSelected(value: RallyMode) {
+        if (value == rallyMode) return
+        rallyMode = value
+        settings.rallyMode = value
+        tracker.resetAllTrips()
+        stopwatchBank.clearAll()
     }
 
     fun onThemeModeSelected(value: ThemeMode) {

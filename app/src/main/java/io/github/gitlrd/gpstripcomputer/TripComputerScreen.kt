@@ -6,7 +6,9 @@ import android.os.Build
 import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -44,23 +46,38 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+
+/**
+ * How often the stopwatch readout is repainted while running. Matches the tenth of a second
+ * it displays; nothing is repainted at all while every stopwatch is stopped.
+ *
+ * This is a redraw interval and nothing more — the reading itself comes from the clock, so a
+ * late or missed repaint costs a frame rather than any time.
+ */
+private const val STOPWATCH_REDRAW_MILLIS = 100L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripComputerScreen(viewModel: TripComputerViewModel) {
     var showHelp by remember { mutableStateOf(false) }
+    /** The mode the user has asked for but not yet confirmed clearing everything for. */
+    var pendingRallyMode by remember { mutableStateOf<RallyMode?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -115,19 +132,28 @@ fun TripComputerScreen(viewModel: TripComputerViewModel) {
                         )
                     }
 
+                    RallyModeSetting(
+                        selected = viewModel.rallyMode,
+                        onSelect = { pendingRallyMode = it }
+                    )
+
                     UnitSetting(
                         selected = viewModel.unitSystem,
                         onSelect = viewModel::onUnitSystemSelected
                     )
 
-                    SettingRow(
-                        label = stringResource(R.string.include_stopped_time),
-                        supporting = stringResource(R.string.include_stopped_time_summary)
-                    ) {
-                        Switch(
-                            checked = viewModel.includeStoppedTime,
-                            onCheckedChange = viewModel::onIncludeStoppedTimeChanged
-                        )
+                    // Only meaningful as a property of the average speed, which regularity
+                    // mode does not have.
+                    if (viewModel.rallyMode.showsAverageSpeed) {
+                        SettingRow(
+                            label = stringResource(R.string.include_stopped_time),
+                            supporting = stringResource(R.string.include_stopped_time_summary)
+                        ) {
+                            Switch(
+                                checked = viewModel.includeStoppedTime,
+                                onCheckedChange = viewModel::onIncludeStoppedTimeChanged
+                            )
+                        }
                     }
 
                     ThemeSetting(
@@ -180,6 +206,16 @@ fun TripComputerScreen(viewModel: TripComputerViewModel) {
 
             if (showHelp) {
                 HelpDialog(onDismiss = { showHelp = false })
+            }
+
+            pendingRallyMode?.let { mode ->
+                ConfirmModeSwitchDialog(
+                    onConfirm = {
+                        viewModel.onRallyModeSelected(mode)
+                        pendingRallyMode = null
+                    },
+                    onDismiss = { pendingRallyMode = null }
+                )
             }
         }
     }
@@ -250,6 +286,55 @@ private fun UnitSetting(selected: UnitSystem, onSelect: (UnitSystem) -> Unit) {
     }
 }
 
+/**
+ * Selecting a mode only proposes it. The switch itself goes through
+ * [ConfirmModeSwitchDialog], because it clears both trips and both stopwatches, and losing
+ * three hours of an event to a mistap in the dark would be unforgivable. The dialog doubles
+ * as the statement that the numbers really are being destroyed rather than hidden.
+ */
+@Composable
+private fun RallyModeSetting(selected: RallyMode, onSelect: (RallyMode) -> Unit) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(stringResource(R.string.rally_mode), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = stringResource(R.string.rally_mode_summary),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RallyMode.entries.forEach { mode ->
+                RadioButton(selected = selected == mode, onClick = { onSelect(mode) })
+                Text(
+                    text = stringResource(
+                        when (mode) {
+                            RallyMode.STANDARD -> R.string.rally_mode_standard
+                            RallyMode.REGULARITY -> R.string.rally_mode_regularity
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConfirmModeSwitchDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.switch_mode_title)) },
+        text = { Text(stringResource(R.string.switch_mode_body)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.switch_mode_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
+}
+
 @Composable
 private fun ThemeSetting(selected: ThemeMode, onSelect: (ThemeMode) -> Unit) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -308,6 +393,19 @@ internal fun TripComputerContent(viewModel: TripComputerViewModel, modifier: Mod
     BoxWithConstraints(modifier = modifier) {
         val layout = screenLayoutFor(maxWidth.value.toInt())
 
+        // A running stopwatch is the only thing on this screen that changes without the
+        // tracker publishing something, so it drives its own repaint — and only while it is
+        // actually running.
+        var now by remember { mutableLongStateOf(viewModel.stopwatchNow()) }
+        val ticking = viewModel.rallyMode.showsStopwatch && viewModel.anyStopwatchRunning
+        LaunchedEffect(ticking) {
+            now = viewModel.stopwatchNow()
+            while (ticking) {
+                delay(STOPWATCH_REDRAW_MILLIS)
+                now = viewModel.stopwatchNow()
+            }
+        }
+
         val trips: @Composable (Modifier) -> Unit = { tripsModifier ->
             Column(
                 modifier = tripsModifier,
@@ -319,10 +417,15 @@ internal fun TripComputerContent(viewModel: TripComputerViewModel, modifier: Mod
                         trip = trip,
                         unitSystem = viewModel.unitSystem,
                         includeStoppedTime = viewModel.includeStoppedTime,
+                        rallyMode = viewModel.rallyMode,
                         onReset = { viewModel.resetTrip(index) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
+                            .weight(1f),
+                        stopwatchMillis = viewModel.stopwatchElapsed(index, now),
+                        stopwatchRunning = viewModel.stopwatches.getOrNull(index)?.isRunning == true,
+                        onStopwatchTap = { viewModel.onStopwatchTapped(index) },
+                        onStopwatchHold = { viewModel.onStopwatchHeld(index) }
                     )
                 }
             }
@@ -358,7 +461,12 @@ internal fun TripComputerContent(viewModel: TripComputerViewModel, modifier: Mod
 
 /**
  * Distance sits first because that is what a road-rally navigator reads off against the
- * roadbook; average speed follows, with trip time and maximum speed as secondary lines.
+ * roadbook; trip time is its secondary line.
+ *
+ * The second card depends on the rally mode. In [RallyMode.STANDARD] it is average speed,
+ * with maximum speed underneath. Under [RallyMode.REGULARITY], where the regulations forbid
+ * an average speed computer, it is a stopwatch instead — and maximum speed moves under the
+ * distance card so it is not lost with it.
  */
 @Composable
 internal fun TripRow(
@@ -366,10 +474,24 @@ internal fun TripRow(
     trip: Trip,
     unitSystem: UnitSystem,
     includeStoppedTime: Boolean,
+    rallyMode: RallyMode,
     onReset: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    stopwatchMillis: Long = 0L,
+    stopwatchRunning: Boolean = false,
+    onStopwatchTap: () -> Unit = {},
+    onStopwatchHold: () -> Unit = {}
 ) {
     val header = stringResource(R.string.trip_label, tripNumber)
+    val maxSpeed = stringResource(
+        R.string.trip_max,
+        formatMeasurement(
+            metresPerSecondTo(trip.maxSpeedMps, unitSystem.speedUnit),
+            unitSystem.speedUnit.abbreviation
+        )
+    )
+    val tripTime = stringResource(R.string.trip_time, formatDuration(trip.elapsedMillis))
+
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -381,34 +503,51 @@ internal fun TripRow(
                 unitSystem.distanceUnit.abbreviation
             ),
             caption = stringResource(R.string.distance),
-            secondary = stringResource(R.string.trip_time, formatDuration(trip.elapsedMillis)),
+            secondary = if (rallyMode.showsAverageSpeed) tripTime else "$tripTime · $maxSpeed",
             onClick = onReset,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxSize()
         )
-        InfoCard(
-            header = header,
-            value = formatMeasurement(
-                metresPerSecondTo(trip.averageSpeedMps(includeStoppedTime), unitSystem.speedUnit),
-                unitSystem.speedUnit.abbreviation
-            ),
-            caption = stringResource(R.string.average_speed),
-            secondary = stringResource(
-                R.string.trip_max,
-                formatMeasurement(
-                    metresPerSecondTo(trip.maxSpeedMps, unitSystem.speedUnit),
+
+        if (rallyMode.showsAverageSpeed) {
+            InfoCard(
+                header = header,
+                value = formatMeasurement(
+                    metresPerSecondTo(
+                        trip.averageSpeedMps(includeStoppedTime),
+                        unitSystem.speedUnit
+                    ),
                     unitSystem.speedUnit.abbreviation
-                )
-            ),
-            onClick = onReset,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxSize()
-        )
+                ),
+                caption = stringResource(R.string.average_speed),
+                secondary = maxSpeed,
+                onClick = onReset,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+            )
+        } else {
+            InfoCard(
+                header = header,
+                value = formatStopwatch(stopwatchMillis),
+                caption = stringResource(R.string.stopwatch),
+                secondary = when {
+                    stopwatchRunning -> stringResource(R.string.stopwatch_running)
+                    stopwatchMillis > 0L -> stringResource(R.string.stopwatch_stopped)
+                    else -> stringResource(R.string.stopwatch_hint)
+                },
+                onClick = onStopwatchTap,
+                onLongClick = onStopwatchHold,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun InfoCard(
     header: String,
@@ -416,9 +555,24 @@ private fun InfoCard(
     caption: String,
     secondary: String?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null
 ) {
-    Card(modifier = modifier.clickable(onClick = onClick)) {
+    val haptics = LocalHapticFeedback.current
+    val interaction = if (onLongClick == null) {
+        Modifier.clickable(onClick = onClick)
+    } else {
+        Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = {
+                // Confirmation you can feel. Clearing a stopwatch at night, on a bumpy
+                // road, should not need you to look at the screen to know it worked.
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onLongClick()
+            }
+        )
+    }
+    Card(modifier = modifier.then(interaction)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

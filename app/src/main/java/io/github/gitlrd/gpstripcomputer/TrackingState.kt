@@ -40,6 +40,15 @@ class TrackingState(tripCount: Int = 2) {
         private set
 
     /**
+     * Time since the last fix that was actually trusted, which is deliberately not the same
+     * as the time since the last fix. Owning it here rather than taking it from the caller
+     * is what makes the distinction impossible to get wrong: a receiver under heavy cover
+     * emits a steady stream of positions too inaccurate to use, and treating those as
+     * evidence of signal froze the speed readout at the last good value indefinitely.
+     */
+    private var millisSinceTrustedFix = 0L
+
+    /**
      * @param metresSinceAnchor straight-line distance from the last accepted fix, or 0 when
      *   there is not one yet.
      * @param reportedSpeedMps the receiver's own speed, or null if it did not supply one.
@@ -59,6 +68,8 @@ class TrackingState(tripCount: Int = 2) {
     ): Boolean {
         if (accuracyMetres != null && accuracyMetres > MAX_FIX_ACCURACY_METRES) return false
 
+        millisSinceTrustedFix = 0L
+
         val impliedSpeed = derivedSpeed(metresSinceAnchor, millisSinceAnchor)
         val speed = reportedSpeedMps ?: impliedSpeed
 
@@ -76,8 +87,9 @@ class TrackingState(tripCount: Int = 2) {
         return true
     }
 
-    fun onTick(deltaMillis: Long, millisSinceLastFix: Long) {
-        if (millisSinceLastFix > STALE_FIX_MILLIS) currentSpeedMps = 0.0
+    fun onTick(deltaMillis: Long) {
+        millisSinceTrustedFix += deltaMillis
+        if (millisSinceTrustedFix > STALE_FIX_MILLIS) currentSpeedMps = 0.0
         trips = trips.map { it.plusTime(deltaMillis, currentSpeedMps) }
     }
 
@@ -86,8 +98,14 @@ class TrackingState(tripCount: Int = 2) {
         trips = trips.mapIndexed { i, trip -> if (i == index) Trip() else trip }
     }
 
+    /** Every trip back to zero, for the clean slate a change of rally mode demands. */
+    fun resetAll() {
+        trips = trips.map { Trip() }
+    }
+
     fun clearSpeed() {
         currentSpeedMps = 0.0
+        millisSinceTrustedFix = 0L
     }
 
     fun restore(saved: List<Trip>) {

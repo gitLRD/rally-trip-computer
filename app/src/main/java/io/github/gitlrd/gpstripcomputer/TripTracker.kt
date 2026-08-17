@@ -60,7 +60,6 @@ class TripTracker(
     /** The last fix trusted enough to measure from. Held put when a fix is rejected. */
     private var anchor: Location? = null
     private var anchorAt = 0L
-    private var lastFixAt = 0L
     private var ticksSinceSave = 0
 
     fun hasLocationPermission(): Boolean =
@@ -72,7 +71,7 @@ class TripTracker(
 
         anchor = null
         anchorAt = SystemClock.elapsedRealtime()
-        lastFixAt = anchorAt
+        state.clearSpeed()
 
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) = onFix(location)
@@ -102,7 +101,7 @@ class TripTracker(
             while (isActive) {
                 delay(TICK_MILLIS)
                 val now = SystemClock.elapsedRealtime()
-                state.onTick(deltaMillis = now - lastTick, millisSinceLastFix = now - lastFixAt)
+                state.onTick(deltaMillis = now - lastTick)
                 lastTick = now
                 publish()
 
@@ -134,6 +133,12 @@ class TripTracker(
         settings.saveTrips(state.trips)
     }
 
+    fun resetAllTrips() {
+        state.resetAll()
+        publish()
+        settings.saveTrips(state.trips)
+    }
+
     private fun onFix(location: Location) {
         val now = SystemClock.elapsedRealtime()
         val measuredFrom = anchor
@@ -145,7 +150,6 @@ class TripTracker(
             millisSinceAnchor = now - anchorAt
         )
 
-        lastFixAt = now
         if (measuredFrom == null || advanceAnchor) {
             anchor = location
             anchorAt = now

@@ -4,8 +4,10 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -44,7 +46,31 @@ class TripDisplayTest {
                 trip = trip,
                 unitSystem = unitSystem,
                 includeStoppedTime = includeStoppedTime,
+                rallyMode = RallyMode.STANDARD,
                 onReset = onReset
+            )
+        }
+    }
+
+    private fun showRegularityTrip(
+        stopwatchMillis: Long = 0L,
+        stopwatchRunning: Boolean = false,
+        onReset: () -> Unit = {},
+        onStopwatchTap: () -> Unit = {},
+        onStopwatchHold: () -> Unit = {}
+    ) {
+        compose.setContent {
+            TripRow(
+                tripNumber = 1,
+                trip = trip,
+                unitSystem = UnitSystem.METRIC,
+                includeStoppedTime = true,
+                rallyMode = RallyMode.REGULARITY,
+                onReset = onReset,
+                stopwatchMillis = stopwatchMillis,
+                stopwatchRunning = stopwatchRunning,
+                onStopwatchTap = onStopwatchTap,
+                onStopwatchHold = onStopwatchHold
             )
         }
     }
@@ -131,11 +157,85 @@ class TripDisplayTest {
                 trip = Trip(),
                 unitSystem = UnitSystem.IMPERIAL,
                 includeStoppedTime = true,
+                rallyMode = RallyMode.STANDARD,
                 onReset = {}
             )
         }
         compose.onNodeWithText("0.00 mi").assertIsDisplayed()
         compose.onNodeWithText("0.00 mph").assertIsDisplayed()
         compose.onNodeWithText("Time 0:00").assertIsDisplayed()
+    }
+
+    // --- regularity mode ----------------------------------------------------------------
+
+    /**
+     * The point of the mode. A regularity's regulations forbid an average speed computer,
+     * so no average speed may appear on the row at all.
+     */
+    @Test
+    fun regularityModeShowsNoAverageSpeed() {
+        showRegularityTrip()
+        compose.onNodeWithText("Average Speed").assertDoesNotExist()
+        compose.onNodeWithText("36.00 km/h").assertDoesNotExist()
+        compose.onNodeWithText("Stopwatch").assertIsDisplayed()
+    }
+
+    @Test
+    fun regularityModeKeepsDistanceTimeAndMaximumSpeed() {
+        showRegularityTrip()
+        compose.onNodeWithText("1.00 km").assertIsDisplayed()
+        compose.onNodeWithText("Time 1:40 · Max 90.00 km/h").assertIsDisplayed()
+    }
+
+    @Test
+    fun theStopwatchReadsToATenth() {
+        showRegularityTrip(stopwatchMillis = 271_200, stopwatchRunning = true)
+        compose.onNodeWithText("4:31.2").assertIsDisplayed()
+        compose.onNodeWithText("Running").assertIsDisplayed()
+    }
+
+    @Test
+    fun aStoppedStopwatchSaysSo() {
+        showRegularityTrip(stopwatchMillis = 271_200, stopwatchRunning = false)
+        compose.onNodeWithText("Stopped").assertIsDisplayed()
+    }
+
+    @Test
+    fun aClearedStopwatchExplainsHowToUseIt() {
+        showRegularityTrip()
+        compose.onNodeWithText("0:00.0").assertIsDisplayed()
+        compose.onNodeWithText("Tap to start · hold to clear").assertIsDisplayed()
+    }
+
+    @Test
+    fun tappingTheStopwatchStartsItWithoutResettingTheTrip() {
+        var taps = 0
+        var resets = 0
+        showRegularityTrip(onReset = { resets++ }, onStopwatchTap = { taps++ })
+
+        compose.onAllNodes(hasClickAction())[1].performClick()
+
+        assertEquals(1, taps)
+        assertEquals("the trip must not be reset by starting a stopwatch", 0, resets)
+    }
+
+    @Test
+    fun holdingTheStopwatchClearsItRatherThanTogglingIt() {
+        var taps = 0
+        var holds = 0
+        showRegularityTrip(onStopwatchTap = { taps++ }, onStopwatchHold = { holds++ })
+
+        compose.onAllNodes(hasClickAction())[1].performTouchInput { longClick() }
+
+        assertEquals(1, holds)
+        assertEquals("a hold must not also register as a tap", 0, taps)
+    }
+
+    @Test
+    fun theDistanceCardStillResetsTheTripInRegularityMode() {
+        var resets = 0
+        showRegularityTrip(onReset = { resets++ })
+        compose.onAllNodes(hasClickAction())[0].performClick()
+        assertEquals(1, resets)
     }
 }

@@ -36,6 +36,14 @@ class Settings(context: Context) {
         get() = ThemeMode.fromKey(prefs.getString(KEY_THEME_MODE, null))
         set(value) = prefs.edit().putString(KEY_THEME_MODE, value.key).apply()
 
+    /**
+     * Which regulations the app is being used under. Persisted, but changing it clears the
+     * trips and stopwatches — see [TripComputerViewModel.onRallyModeSelected].
+     */
+    var rallyMode: RallyMode
+        get() = RallyMode.fromKey(prefs.getString(KEY_RALLY_MODE, null))
+        set(value) = prefs.edit().putString(KEY_RALLY_MODE, value.key).apply()
+
     /** [BRIGHTNESS_FOLLOW_SYSTEM], or 0..1 once the navigator has set it explicitly. */
     var screenBrightness: Float
         get() = prefs.getFloat(KEY_BRIGHTNESS, BRIGHTNESS_FOLLOW_SYSTEM)
@@ -52,6 +60,18 @@ class Settings(context: Context) {
     fun loadTrips(expectedCount: Int): List<Trip> =
         decodeTrips(prefs.getString(KEY_TRIPS, null), expectedCount)
 
+    /**
+     * Stopwatches survive the process being killed too. Written on every tap rather than on
+     * a tick: a stopwatch only changes when it is pressed, and a start time lost to a
+     * process death mid-regularity is a timing gone.
+     */
+    fun saveStopwatches(stopwatches: List<Stopwatch>) {
+        prefs.edit().putString(KEY_STOPWATCHES, encodeStopwatches(stopwatches)).apply()
+    }
+
+    fun loadStopwatches(expectedCount: Int): List<Stopwatch> =
+        decodeStopwatches(prefs.getString(KEY_STOPWATCHES, null), expectedCount)
+
     companion object {
         const val PREFS_NAME = "settings"
         const val KEY_UNITS = "units"
@@ -60,5 +80,7 @@ class Settings(context: Context) {
         const val KEY_THEME_MODE = "theme_mode"
         const val KEY_BRIGHTNESS = "screen_brightness"
         const val KEY_TRIPS = "trips"
+        const val KEY_RALLY_MODE = "rally_mode"
+        const val KEY_STOPWATCHES = "stopwatches"
     }
 }
