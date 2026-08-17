@@ -107,6 +107,16 @@ purpose: `LocationListener`'s status callbacks only gained default implementatio
 30, so removing those overrides would throw `AbstractMethodError` on older devices and
 nowhere else.
 
+## Installing
+
+The app is published on **F-Droid**, which builds it from source and signs it itself — so
+what you install is provably built from the code in this repository, and no signing key of
+mine is involved.
+
+To build it yourself, `./gradlew assembleDebug` produces a sideloadable APK.
+`./gradlew assembleRelease` deliberately produces an *unsigned* one, because F-Droid holds
+the release signature. See [RELEASING.md](RELEASING.md).
+
 ## Licence
 
 Released under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE).

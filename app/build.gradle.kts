@@ -27,24 +27,9 @@ android {
         }
     }
 
-    /**
-     * Signing details come from the environment, so no keystore and no password is ever
-     * committed. When they are absent — an ordinary local build, or a fork's CI — the
-     * release build simply stays unsigned, which is also what F-Droid wants, since it
-     * builds from source and signs with its own key.
-     */
-    val releaseKeystore = System.getenv("RELEASE_KEYSTORE_PATH")
-    signingConfigs {
-        if (!releaseKeystore.isNullOrBlank()) {
-            create("release") {
-                storeFile = file(releaseKeystore)
-                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
-                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
-            }
-        }
-    }
-
+    // No signing config, deliberately. The app is distributed through F-Droid, which builds
+    // from source and signs with its own key, so `assembleRelease` produces an unsigned APK
+    // and there is no keystore anywhere near this repository to leak or lose.
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -52,7 +37,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.findByName("release")
         }
     }
     compileOptions {
