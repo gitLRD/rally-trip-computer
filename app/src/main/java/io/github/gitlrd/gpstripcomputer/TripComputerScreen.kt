@@ -53,12 +53,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -496,135 +498,109 @@ internal fun TripRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        InfoCard(
-            header = header,
-            value = formatMeasurement(
-                metresTo(trip.distanceMetres, unitSystem.distanceUnit),
-                unitSystem.distanceUnit.abbreviation
-            ),
-            caption = stringResource(R.string.distance),
-            secondary = if (rallyMode.showsAverageSpeed) tripTime else "$tripTime · $maxSpeed",
+        MetricPanel(
+            eyebrow = "$header · ${stringResource(R.string.distance)}",
+            value = formatNumber(metresTo(trip.distanceMetres, unitSystem.distanceUnit)),
+            unit = unitSystem.distanceUnit.abbreviation,
+            footer = if (rallyMode.showsAverageSpeed) tripTime else "$tripTime · $maxSpeed",
             onClick = onReset,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxSize()
+            modifier = Modifier.weight(1f).fillMaxSize()
         )
 
         if (rallyMode.showsAverageSpeed) {
-            InfoCard(
-                header = header,
-                value = formatMeasurement(
+            MetricPanel(
+                eyebrow = "$header · ${stringResource(R.string.average_speed)}",
+                value = formatNumber(
                     metresPerSecondTo(
                         trip.averageSpeedMps(includeStoppedTime),
                         unitSystem.speedUnit
-                    ),
-                    unitSystem.speedUnit.abbreviation
+                    )
                 ),
-                caption = stringResource(R.string.average_speed),
-                secondary = maxSpeed,
+                unit = unitSystem.speedUnit.abbreviation,
+                footer = maxSpeed,
                 onClick = onReset,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()
+                modifier = Modifier.weight(1f).fillMaxSize()
             )
         } else {
-            InfoCard(
-                header = header,
+            MetricPanel(
+                eyebrow = "$header · ${stringResource(R.string.stopwatch)}",
                 value = formatStopwatch(stopwatchMillis),
-                caption = stringResource(R.string.stopwatch),
-                secondary = when {
+                unit = null,
+                footer = when {
                     stopwatchRunning -> stringResource(R.string.stopwatch_running)
                     stopwatchMillis > 0L -> stringResource(R.string.stopwatch_stopped)
                     else -> stringResource(R.string.stopwatch_hint)
                 },
                 onClick = onStopwatchTap,
                 onLongClick = onStopwatchHold,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()
+                // A running stopwatch is the one thing on the dashboard whose state you
+                // cannot infer from its reading at a glance, so it gets the indicator.
+                indicator = if (stopwatchRunning) MaterialTheme.colorScheme.primary else null,
+                valueColor = if (stopwatchRunning) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.weight(1f).fillMaxSize()
             )
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * A trip meter's face. Eyebrow at the top, the reading filling the middle, secondary
+ * reading closing it off — so the number sits where the eye lands and the labels stay out
+ * of its way.
+ */
 @Composable
-private fun InfoCard(
-    header: String,
+private fun MetricPanel(
+    eyebrow: String,
     value: String,
-    caption: String,
-    secondary: String?,
+    unit: String?,
+    footer: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onLongClick: (() -> Unit)? = null
+    onLongClick: (() -> Unit)? = null,
+    indicator: Color? = null,
+    valueColor: Color? = null
 ) {
-    val haptics = LocalHapticFeedback.current
-    val interaction = if (onLongClick == null) {
-        Modifier.clickable(onClick = onClick)
-    } else {
-        Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = {
-                // Confirmation you can feel. Clearing a stopwatch at night, on a bumpy
-                // road, should not need you to look at the screen to know it worked.
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                onLongClick()
-            }
+    Panel(modifier = modifier, onClick = onClick, onLongClick = onLongClick) {
+        PanelEyebrow(eyebrow, indicator = indicator)
+        Spacer(Modifier.weight(1f))
+        PanelReadout(
+            value = value,
+            unit = unit,
+            maxSize = 44.sp,
+            color = valueColor ?: MaterialTheme.colorScheme.onSurface
         )
-    }
-    Card(modifier = modifier.then(interaction)) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(header, style = MaterialTheme.typography.labelMedium)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(caption, style = MaterialTheme.typography.labelMedium)
-            if (secondary != null) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = secondary,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
+        Spacer(Modifier.weight(1f))
+        PanelFooter(footer)
     }
 }
 
+/**
+ * The speedometer. Given the largest numerals on the screen because it is the only reading
+ * that has to be caught rather than read — everything else you choose to look at.
+ */
 @Composable
 internal fun SpeedCard(speedMps: Double, unitSystem: UnitSystem, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, elevation = CardDefaults.cardElevation(8.dp)) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = stringResource(R.string.current_speed),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = formatMeasurement(
-                    metresPerSecondTo(speedMps, unitSystem.speedUnit),
-                    unitSystem.speedUnit.abbreviation
-                ),
-                style = MaterialTheme.typography.headlineLarge
-            )
-        }
+    val speed = metresPerSecondTo(speedMps, unitSystem.speedUnit)
+    // Full scale chosen per unit rather than converted, so the ticks land on round numbers
+    // instead of on 96 mph.
+    val fullScale = when (unitSystem.speedUnit) {
+        SpeedUnit.MILES_PER_HOUR -> 100.0
+        SpeedUnit.KILOMETRES_PER_HOUR -> 160.0
+    }
+    Panel(modifier = modifier) {
+        PanelEyebrow(stringResource(R.string.current_speed))
+        Spacer(Modifier.weight(1f))
+        PanelReadout(
+            value = formatNumber(speed),
+            unit = unitSystem.speedUnit.abbreviation,
+            maxSize = 92.sp
+        )
+        Spacer(Modifier.weight(1f))
+        SpeedScale(speed = speed, fullScale = fullScale)
     }
 }
 
@@ -642,8 +618,12 @@ private fun HelpDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun formatMeasurement(value: Double, abbreviation: String): String =
-    stringResource(
-        R.string.measurement,
-        String.format(Locale.getDefault(), "%.2f", value),
-        abbreviation
-    )
+    stringResource(R.string.measurement, formatNumber(value), abbreviation)
+
+/**
+ * The bare number, with no unit attached. The dashboard sets the two separately so the unit
+ * can be given its own, quieter treatment; [formatMeasurement] is still used where the two
+ * belong in one run of text, such as the secondary readings and the notification.
+ */
+private fun formatNumber(value: Double): String =
+    String.format(Locale.getDefault(), "%.2f", value)

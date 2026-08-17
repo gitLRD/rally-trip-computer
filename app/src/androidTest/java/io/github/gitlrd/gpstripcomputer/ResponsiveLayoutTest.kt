@@ -50,7 +50,7 @@ class ResponsiveLayoutTest {
     private fun assertEverythingVisible() {
         compose.onAllNodesWithText("Trip 1")[0].assertIsDisplayed()
         compose.onAllNodesWithText("Trip 2")[0].assertIsDisplayed()
-        compose.onNodeWithText("Current Speed").assertIsDisplayed()
+        compose.onNodeWithText("Current Speed", ignoreCase = true).assertIsDisplayed()
     }
 
     @Test
@@ -81,7 +81,7 @@ class ResponsiveLayoutTest {
     fun narrowWindowsPutTheSpeedCardBelowTheTrips() {
         showAt(width = 424.dp, height = 990.dp)
 
-        val speed = compose.onNodeWithText("Current Speed").getUnclippedBoundsInRoot()
+        val speed = compose.onNodeWithText("Current Speed", ignoreCase = true).getUnclippedBoundsInRoot()
         val trip1 = compose.onAllNodesWithText("Trip 1")[0].getUnclippedBoundsInRoot()
         val trip2 = compose.onAllNodesWithText("Trip 2")[0].getUnclippedBoundsInRoot()
 
@@ -94,7 +94,7 @@ class ResponsiveLayoutTest {
     fun wideWindowsPutTheSpeedCardBesideTheTrips() {
         showAt(width = 940.dp, height = 846.dp)
 
-        val speed = compose.onNodeWithText("Current Speed").getUnclippedBoundsInRoot()
+        val speed = compose.onNodeWithText("Current Speed", ignoreCase = true).getUnclippedBoundsInRoot()
         val trip1 = compose.onAllNodesWithText("Trip 1")[0].getUnclippedBoundsInRoot()
         val trip2 = compose.onAllNodesWithText("Trip 2")[0].getUnclippedBoundsInRoot()
 
