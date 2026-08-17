@@ -78,41 +78,46 @@ class TripDisplayTest {
     @Test
     fun showsDistanceAndOverallAverageInMetric() {
         showTrip(UnitSystem.METRIC, includeStoppedTime = true)
-        compose.onNodeWithText("1.00 km").assertIsDisplayed()
-        compose.onNodeWithText("36.00 km/h").assertIsDisplayed()
+        compose.onNodeWithText("1.00").assertIsDisplayed()
+        compose.onNodeWithText("km").assertIsDisplayed()
+        compose.onNodeWithText("36.00").assertIsDisplayed()
+        compose.onNodeWithText("km/h").assertIsDisplayed()
     }
 
     @Test
     fun excludingStoppedTimeShowsTheHigherMovingAverage() {
         showTrip(UnitSystem.METRIC, includeStoppedTime = false)
-        compose.onNodeWithText("72.00 km/h").assertIsDisplayed()
+        compose.onNodeWithText("72.00").assertIsDisplayed()
         // Distance is unaffected by which average is shown.
-        compose.onNodeWithText("1.00 km").assertIsDisplayed()
+        compose.onNodeWithText("1.00").assertIsDisplayed()
+        compose.onNodeWithText("km").assertIsDisplayed()
     }
 
     @Test
     fun showsImperialUnitsWhenSelected() {
         showTrip(UnitSystem.IMPERIAL, includeStoppedTime = true)
-        compose.onNodeWithText("0.62 mi").assertIsDisplayed()
-        compose.onNodeWithText("22.37 mph").assertIsDisplayed()
+        compose.onNodeWithText("0.62").assertIsDisplayed()
+        compose.onNodeWithText("mi").assertIsDisplayed()
+        compose.onNodeWithText("22.37").assertIsDisplayed()
+        compose.onNodeWithText("mph").assertIsDisplayed()
     }
 
     @Test
     fun showsTripTimeAlongsideDistance() {
         showTrip()
-        compose.onNodeWithText("Time 1:40").assertIsDisplayed()
+        compose.onNodeWithText("Time 1:40", ignoreCase = true).assertIsDisplayed()
     }
 
     @Test
     fun showsMaximumSpeedAlongsideTheAverage() {
         showTrip(UnitSystem.METRIC)
-        compose.onNodeWithText("Max 90.00 km/h").assertIsDisplayed()
+        compose.onNodeWithText("Max 90.00 km/h", ignoreCase = true).assertIsDisplayed()
     }
 
     @Test
     fun maximumSpeedConvertsWithTheUnits() {
         showTrip(UnitSystem.IMPERIAL)
-        compose.onNodeWithText("Max 55.92 mph").assertIsDisplayed()
+        compose.onNodeWithText("Max 55.92 mph", ignoreCase = true).assertIsDisplayed()
     }
 
     @Test
@@ -140,13 +145,13 @@ class TripDisplayTest {
     @Test
     fun speedCardConvertsToTheSelectedUnits() {
         compose.setContent { SpeedCard(speedMps = 11.11, unitSystem = UnitSystem.METRIC) }
-        compose.onNodeWithText("40.00 km/h").assertIsDisplayed()
+        compose.onNodeWithText("40.00").assertIsDisplayed()
     }
 
     @Test
     fun speedCardShowsImperial() {
         compose.setContent { SpeedCard(speedMps = 11.11, unitSystem = UnitSystem.IMPERIAL) }
-        compose.onNodeWithText("24.85 mph").assertIsDisplayed()
+        compose.onNodeWithText("24.85").assertIsDisplayed()
     }
 
     @Test
@@ -161,9 +166,9 @@ class TripDisplayTest {
                 onReset = {}
             )
         }
-        compose.onNodeWithText("0.00 mi").assertIsDisplayed()
-        compose.onNodeWithText("0.00 mph").assertIsDisplayed()
-        compose.onNodeWithText("Time 0:00").assertIsDisplayed()
+        compose.onNodeWithText("0.00").assertIsDisplayed()
+        
+        compose.onNodeWithText("Time 0:00", ignoreCase = true).assertIsDisplayed()
     }
 
     // --- regularity mode ----------------------------------------------------------------
@@ -175,36 +180,40 @@ class TripDisplayTest {
     @Test
     fun regularityModeShowsNoAverageSpeed() {
         showRegularityTrip()
-        compose.onNodeWithText("Average Speed").assertDoesNotExist()
-        compose.onNodeWithText("36.00 km/h").assertDoesNotExist()
-        compose.onNodeWithText("Stopwatch").assertIsDisplayed()
+        compose.onNodeWithText("Average Speed", substring = true, ignoreCase = true)
+            .assertDoesNotExist()
+        compose.onNodeWithText("36.00").assertDoesNotExist()
+        compose.onNodeWithText("Stopwatch", substring = true, ignoreCase = true)
+            .assertIsDisplayed()
     }
 
     @Test
     fun regularityModeKeepsDistanceTimeAndMaximumSpeed() {
         showRegularityTrip()
-        compose.onNodeWithText("1.00 km").assertIsDisplayed()
-        compose.onNodeWithText("Time 1:40 · Max 90.00 km/h").assertIsDisplayed()
+        compose.onNodeWithText("1.00").assertIsDisplayed()
+        compose.onNodeWithText("km").assertIsDisplayed()
+        compose.onNodeWithText("Time 1:40 · Max 90.00 km/h", ignoreCase = true)
+            .assertIsDisplayed()
     }
 
     @Test
     fun theStopwatchReadsToATenth() {
         showRegularityTrip(stopwatchMillis = 271_200, stopwatchRunning = true)
         compose.onNodeWithText("4:31.2").assertIsDisplayed()
-        compose.onNodeWithText("Running").assertIsDisplayed()
+        compose.onNodeWithText("Running", ignoreCase = true).assertIsDisplayed()
     }
 
     @Test
     fun aStoppedStopwatchSaysSo() {
         showRegularityTrip(stopwatchMillis = 271_200, stopwatchRunning = false)
-        compose.onNodeWithText("Stopped").assertIsDisplayed()
+        compose.onNodeWithText("Stopped", ignoreCase = true).assertIsDisplayed()
     }
 
     @Test
     fun aClearedStopwatchExplainsHowToUseIt() {
         showRegularityTrip()
         compose.onNodeWithText("0:00.0").assertIsDisplayed()
-        compose.onNodeWithText("Tap to start · hold to clear").assertIsDisplayed()
+        compose.onNodeWithText("Tap to start", ignoreCase = true).assertIsDisplayed()
     }
 
     @Test

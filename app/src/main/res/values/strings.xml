@@ -42,7 +42,7 @@
     <string name="stopwatch">Stopwatch</string>
     <string name="stopwatch_running">Running</string>
     <string name="stopwatch_stopped">Stopped</string>
-    <string name="stopwatch_hint">Tap to start · hold to clear</string>
+    <string name="stopwatch_hint">Tap to start</string>
 
     <string name="switch_mode_title">Clear everything?</string>
     <string name="switch_mode_body">Changing rally mode clears both trips and both stopwatches. This cannot be undone.\n\nThey are cleared on the way back too, so nothing can be carried between modes.</string>
