@@ -39,6 +39,8 @@ class SettingsTest {
         assertFalse(settings.trackingEnabled)
         assertEquals(ThemeMode.DARK, settings.themeMode)
         assertEquals(BRIGHTNESS_FOLLOW_SYSTEM, settings.screenBrightness, 0.0f)
+        // Nobody gets regularity rules without asking for them.
+        assertEquals(RallyMode.STANDARD, settings.rallyMode)
     }
 
     @Test
@@ -48,12 +50,14 @@ class SettingsTest {
         settings.trackingEnabled = true
         settings.themeMode = ThemeMode.NIGHT
         settings.screenBrightness = 0.25f
+        settings.rallyMode = RallyMode.REGULARITY
 
         assertEquals(UnitSystem.METRIC, settings.unitSystem)
         assertFalse(settings.includeStoppedTime)
         assertTrue(settings.trackingEnabled)
         assertEquals(ThemeMode.NIGHT, settings.themeMode)
         assertEquals(0.25f, settings.screenBrightness, 1e-6f)
+        assertEquals(RallyMode.REGULARITY, settings.rallyMode)
     }
 
     @Test
@@ -84,5 +88,73 @@ class SettingsTest {
     @Test
     fun noStoredTripsLoadsEmptyOnes() {
         assertEquals(listOf(Trip(), Trip()), settings.loadTrips(expectedCount = 2))
+    }
+
+    /** A timing must survive the process being reclaimed mid-regularity. */
+    @Test
+    fun stopwatchesArePersistedAndRestored() {
+        val stopwatches = listOf(
+            Stopwatch(accumulatedMillis = 125_400, startedAtRealtime = 998_877),
+            Stopwatch(accumulatedMillis = 42)
+        )
+        settings.saveStopwatches(stopwatches)
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals(stopwatches, Settings(context).loadStopwatches(expectedCount = 2))
+    }
+
+    @Test
+    fun noStoredStopwatchesLoadsEmptyOnes() {
+        assertEquals(listOf(Stopwatch(), Stopwatch()), settings.loadStopwatches(expectedCount = 2))
+    }
+
+    /**
+     * The bank is what the app actually reads, and it must reconcile a stored start time
+     * against the current clock rather than trusting it blindly.
+     */
+    @Test
+    fun theBankRestoresARunningStopwatchAndKeepsItRunning() {
+        settings.saveStopwatches(listOf(Stopwatch(startedAtRealtime = 1_000), Stopwatch()))
+
+        val bank = StopwatchBank(settings, count = 2, clock = { 61_000 })
+
+        assertTrue(bank.anyRunning)
+        assertEquals(60_000L, bank.elapsedAt(0, nowRealtime = 61_000))
+    }
+
+    @Test
+    fun theBankStopsAStopwatchLeftRunningAcrossAReboot() {
+        settings.saveStopwatches(
+            listOf(Stopwatch(accumulatedMillis = 5_000, startedAtRealtime = 500_000), Stopwatch())
+        )
+
+        // elapsedRealtime restarts from zero on reboot, so "now" is before the stored start.
+        val bank = StopwatchBank(settings, count = 2, clock = { 3_000 })
+
+        assertFalse(bank.anyRunning)
+        assertEquals(5_000L, bank.elapsedAt(0, nowRealtime = 3_000))
+    }
+
+    @Test
+    fun tappingAndHoldingTheBankPersistsImmediately() {
+        val bank = StopwatchBank(settings, count = 2, clock = { 1_000 })
+        bank.toggle(0)
+        assertTrue(settings.loadStopwatches(expectedCount = 2)[0].isRunning)
+
+        bank.clear(0)
+        assertEquals(Stopwatch(), settings.loadStopwatches(expectedCount = 2)[0])
+    }
+
+    /** What a change of rally mode does: everything gone, and gone from storage too. */
+    @Test
+    fun clearingTheBankEmptiesEveryStopwatchInStorage() {
+        val bank = StopwatchBank(settings, count = 2, clock = { 1_000 })
+        bank.toggle(0)
+        bank.toggle(1)
+
+        bank.clearAll()
+
+        assertFalse(bank.anyRunning)
+        assertEquals(listOf(Stopwatch(), Stopwatch()), settings.loadStopwatches(expectedCount = 2))
     }
 }

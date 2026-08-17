@@ -8,6 +8,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,9 +18,24 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private const val TICK_MILLIS = 1000L
+
+/**
+ * How often fixes are asked for. This is a request, not a promise: the receiver delivers at
+ * whatever rate its hardware runs at, which on most phones is 1 Hz regardless of what is
+ * asked for. [FIX_RATE_TAG] reports what actually arrives, in debug builds.
+ *
+ * The rate matters for distance because a fix is a point, and the ground between two fixes
+ * is measured as the straight line joining them. At 60 mph a 1 Hz fix rate draws 27 m
+ * chords across whatever the road really did, so every bend reads slightly short.
+ */
 private const val FIX_INTERVAL_MILLIS = 1000L
+
+/** `adb logcat -s GpsFixRate` while driving to see the rate the receiver really delivers. */
+private const val FIX_RATE_TAG = "GpsFixRate"
+private const val FIX_RATE_REPORT_EVERY = 30
 
 /** Trips are written to storage this often while tracking, rather than on every tick. */
 private const val SAVE_EVERY_TICKS = 5
@@ -60,8 +76,10 @@ class TripTracker(
     /** The last fix trusted enough to measure from. Held put when a fix is rejected. */
     private var anchor: Location? = null
     private var anchorAt = 0L
-    private var lastFixAt = 0L
     private var ticksSinceSave = 0
+
+    private var fixCount = 0
+    private var firstFixAt = 0L
 
     fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -72,7 +90,7 @@ class TripTracker(
 
         anchor = null
         anchorAt = SystemClock.elapsedRealtime()
-        lastFixAt = anchorAt
+        state.clearSpeed()
 
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) = onFix(location)
@@ -102,7 +120,7 @@ class TripTracker(
             while (isActive) {
                 delay(TICK_MILLIS)
                 val now = SystemClock.elapsedRealtime()
-                state.onTick(deltaMillis = now - lastTick, millisSinceLastFix = now - lastFixAt)
+                state.onTick(deltaMillis = now - lastTick)
                 lastTick = now
                 publish()
 
@@ -134,6 +152,12 @@ class TripTracker(
         settings.saveTrips(state.trips)
     }
 
+    fun resetAllTrips() {
+        state.resetAll()
+        publish()
+        settings.saveTrips(state.trips)
+    }
+
     private fun onFix(location: Location) {
         val now = SystemClock.elapsedRealtime()
         val measuredFrom = anchor
@@ -145,12 +169,33 @@ class TripTracker(
             millisSinceAnchor = now - anchorAt
         )
 
-        lastFixAt = now
         if (measuredFrom == null || advanceAnchor) {
             anchor = location
             anchorAt = now
         }
         publish()
+
+        if (BuildConfig.DEBUG) reportFixRate(now)
+    }
+
+    /**
+     * Reports the rate fixes actually arrive at, which is the thing worth knowing before
+     * changing [FIX_INTERVAL_MILLIS]: asking for a faster rate than the receiver supports
+     * costs battery for nothing, and most phones run their GNSS engine at a fixed 1 Hz.
+     */
+    private fun reportFixRate(now: Long) {
+        if (fixCount == 0) firstFixAt = now
+        fixCount++
+        if (fixCount < 2 || fixCount % FIX_RATE_REPORT_EVERY != 0) return
+
+        val meanInterval = (now - firstFixAt) / (fixCount - 1)
+        if (meanInterval <= 0L) return
+        Log.d(
+            FIX_RATE_TAG,
+            "$fixCount fixes, mean interval $meanInterval ms " +
+                "(${String.format(Locale.ROOT, "%.2f", 1000.0 / meanInterval)} Hz), " +
+                "requested every $FIX_INTERVAL_MILLIS ms"
+        )
     }
 
     private fun publish() {

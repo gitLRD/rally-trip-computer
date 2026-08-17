@@ -199,28 +199,68 @@ class TrackingStateTest {
     fun `a tick within the stale window keeps the current speed`() {
         val state = TrackingState()
         state.fix(11.1, movingMps)
-        state.onTick(deltaMillis = 1_000, millisSinceLastFix = STALE_FIX_MILLIS)
+        state.onTick(deltaMillis = 1_000)
         assertEquals(movingMps, state.currentSpeedMps, 1e-9)
         state.trips.forEach { assertEquals(1_000L, it.movingMillis) }
     }
 
-    /** Signal loss: the readout must fall to zero rather than sit at the last speed. */
     @Test
-    fun `a tick past the stale window zeroes the speed`() {
+    fun `the speed survives right up to the stale limit`() {
         val state = TrackingState()
         state.fix(11.1, movingMps)
-        state.onTick(deltaMillis = 1_000, millisSinceLastFix = STALE_FIX_MILLIS + 1)
+        repeat(5) { state.onTick(1_000) } // exactly STALE_FIX_MILLIS
+        assertEquals(movingMps, state.currentSpeedMps, 1e-9)
+    }
+
+    /** Signal loss: the readout must fall to zero rather than sit at the last speed. */
+    @Test
+    fun `ticking past the stale window zeroes the speed`() {
+        val state = TrackingState()
+        state.fix(11.1, movingMps)
+        repeat(6) { state.onTick(1_000) }
         assertEquals(0.0, state.currentSpeedMps, 0.0)
     }
 
     @Test
-    fun `time spent stale counts as elapsed but not as moving`() {
+    fun `a trusted fix restarts the stale countdown`() {
         val state = TrackingState()
         state.fix(11.1, movingMps)
-        repeat(10) { state.onTick(1_000, STALE_FIX_MILLIS + 1) }
+        repeat(4) { state.onTick(1_000) }
+        state.fix(11.1, movingMps)
+        repeat(4) { state.onTick(1_000) }
+        assertEquals("a fresh fix should have reset the clock", movingMps, state.currentSpeedMps, 1e-9)
+    }
+
+    /**
+     * A rejected fix is not a fix. Under heavy tree cover a receiver emits a steady stream
+     * of positions it cannot vouch for; counting those as evidence that the signal is alive
+     * left the speed readout frozen at the last good reading indefinitely, which is worse
+     * than showing nothing because it looks like a working speedo.
+     */
+    @Test
+    fun `untrusted fixes do not hold off the stale timeout`() {
+        val state = TrackingState()
+        state.fix(11.1, movingMps)
+        assertEquals(movingMps, state.currentSpeedMps, 1e-9)
+
+        repeat(6) {
+            state.fix(50.0, movingMps, accuracy = MAX_FIX_ACCURACY_METRES + 1)
+            state.onTick(1_000)
+        }
+
+        assertEquals(0.0, state.currentSpeedMps, 0.0)
+    }
+
+    @Test
+    fun `time after the signal is lost counts as elapsed but not as moving`() {
+        val state = TrackingState()
+        state.fix(11.1, movingMps)
+        repeat(16) { state.onTick(1_000) }
         state.trips.forEach {
-            assertEquals(10_000L, it.elapsedMillis)
-            assertEquals(0L, it.movingMillis)
+            assertEquals(16_000L, it.elapsedMillis)
+            // The five seconds before the fix went stale still count: until then we had
+            // every reason to believe the car was moving.
+            assertEquals(5_000L, it.movingMillis)
         }
     }
 
@@ -231,14 +271,14 @@ class TrackingStateTest {
 
         repeat(30) {
             state.fix(11.11, movingMps)
-            state.onTick(1_000, 0)
+            state.onTick(1_000)
         }
         val movingBefore = state.trips[0].averageSpeedMps(includeStoppedTime = false)
         assertEquals(11.11, movingBefore, 0.01)
 
         repeat(30) {
             state.fix(0.0, 0.0)
-            state.onTick(1_000, 0)
+            state.onTick(1_000)
         }
 
         assertEquals(11.11 / 2, state.trips[0].averageSpeedMps(includeStoppedTime = true), 0.02)
@@ -252,7 +292,7 @@ class TrackingStateTest {
         val state = TrackingState()
         repeat(5) {
             state.fix(11.1, movingMps)
-            state.onTick(1_000, 0)
+            state.onTick(1_000)
         }
         assertEquals(state.trips[0], state.trips[1])
 
@@ -260,6 +300,31 @@ class TrackingStateTest {
 
         assertEquals(Trip(), state.trips[0])
         assertNotEquals(Trip(), state.trips[1])
+    }
+
+    /**
+     * Switching rally mode has to clear everything, so the numbers can be shown to be gone
+     * rather than merely hidden behind a toggle.
+     */
+    @Test
+    fun `resetting everything empties every trip`() {
+        val state = TrackingState()
+        repeat(5) {
+            state.fix(11.1, movingMps)
+            state.onTick(1_000)
+        }
+
+        state.resetAll()
+
+        state.trips.forEach { assertEquals(Trip(), it) }
+    }
+
+    @Test
+    fun `resetting everything also clears the maximum speed`() {
+        val state = TrackingState()
+        state.fix(10.0, 35.0)
+        state.resetAll()
+        state.trips.forEach { assertEquals(0.0, it.maxSpeedMps, 0.0) }
     }
 
     @Test
@@ -276,7 +341,7 @@ class TrackingStateTest {
     fun `clearSpeed zeroes the readout without touching the trips`() {
         val state = TrackingState()
         state.fix(11.1, movingMps)
-        state.onTick(1_000, 0)
+        state.onTick(1_000)
         val trips = state.trips
 
         state.clearSpeed()
