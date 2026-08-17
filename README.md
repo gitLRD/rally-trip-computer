@@ -98,8 +98,10 @@ the JVM in milliseconds:
 `TrackingState`, so nothing interesting is stranded behind the platform APIs. Instrumented
 tests cover settings persistence, what the cards render, and that trip data survives a
 configuration change. Screenshot goldens in `app/src/test/screenshots` run on the JVM via
-Robolectric — re-record them with `./gradlew recordRoborazziDebug`, on the same platform CI
-compares them on.
+Robolectric — re-record them with `./gradlew recordRoborazziDebug`. They can be recorded on
+any platform: the comparison allows a small per-pixel colour tolerance, which absorbs the
+way macOS and Linux rasterise antialiased edges differently. See `ScreenshotOptions.kt` for
+why that is a colour tolerance and not a pixel-count budget.
 
 CI runs the build, unit tests, screenshots and lint on every push, and the instrumented
 tests on emulators at **API 24 and 34** — the minimum and target. API 24 is there on
