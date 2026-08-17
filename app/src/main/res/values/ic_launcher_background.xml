@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- British racing green. The Spitz is white, so the adaptive icon's background
+         layer has to be dark or the dog disappears into it entirely. -->
+    <color name="ic_launcher_background">#14472F</color>
 </resources>

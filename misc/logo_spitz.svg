@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <title>Japanese Spitz in racing goggles</title>
+  
+  <rect width="108" height="108" fill="#14472F"/>
+  <g stroke="#22272E" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+
+    <!-- Ears sit behind the head so the join is hidden by the skull. -->
+    <path d="M38.0,14.0 Q32.65,26.00 30.5,38.0 L49.0,33.0 Q45.10,23.50 38.0,14.0 Z" fill="#FFFFFF"/>
+    <path d="M70.0,14.0 Q72.15,26.00 77.5,38.0 L59.0,33.0 Q66.10,23.50 70.0,14.0 Z" fill="#FFFFFF"/>
+    <path d="M38.31,17.87 L33.35,28.88 L44.82,25.78 Z" fill="#E9A79C" stroke-width="1.4"/>
+    <path d="M69.69,17.87 L74.65,28.88 L63.18,25.78 Z" fill="#E9A79C" stroke-width="1.4"/>
+
+    <!-- The ruff: a Japanese Spitz's defining feature, and what carries the
+         silhouette at 48px once the detail inside it has vanished. Deliberately
+         much fluffier than the head, so the two do not merge into one blob. -->
+    <path d="M85.83,60.89 Q88.16,63.06 84.28,65.04 Q83.55,67.70 86.59,71.10 Q84.72,72.86 77.27,72.65 Q76.51,74.34 78.64,77.60 Q78.59,79.39 74.08,78.01 Q73.15,81.50 74.65,87.47 Q73.46,87.88 68.73,83.58 Q67.03,87.26 66.99,94.17 Q65.93,95.39 62.70,90.53 Q61.43,92.94 61.10,99.30 Q58.28,100.18 54.68,94.12 Q52.84,91.20 50.85,92.00 Q47.53,92.94 45.38,88.26 Q43.89,87.33 41.10,89.64 Q38.07,91.35 37.93,87.73 Q36.53,86.60 32.91,88.60 Q32.04,86.16 35.15,79.33 Q31.29,79.19 24.53,81.24 Q23.89,78.79 28.72,73.28 Q27.30,71.98 22.47,71.95 Q19.41,69.60 22.63,65.87 Q24.64,63.71 22.90,61.77 Q20.98,58.97 25.07,56.73 Q24.23,55.14 19.59,52.68 Q18.22,49.95 23.36,49.40 Q26.88,47.43 26.93,43.60 Q28.15,42.40 34.06,44.76 Q35.82,43.39 35.27,39.63 Q34.48,35.12 37.24,35.49 Q38.60,33.85 38.00,28.62 Q40.58,27.34 45.60,32.37 Q47.69,32.15 48.98,28.12 Q52.02,25.80 55.42,30.05 Q57.15,31.55 59.27,29.16 Q61.14,30.51 61.71,37.58 Q65.16,35.96 70.04,31.02 Q71.97,30.03 70.63,34.86 Q71.99,37.89 75.65,37.85 Q76.39,39.57 73.05,45.36 Q74.67,46.00 78.92,44.61 Q80.66,46.93 77.56,52.00 Q78.51,52.98 82.58,52.82 Q85.20,55.31 82.15,59.01 Q82.19,60.07 85.83,60.89 Z" fill="#D9E2EA"/>
+
+    <!-- Head. Only faintly furry: spiking it as hard as the ruff turned the whole
+         thing into a startled cat. -->
+    <path d="M79.52,55.73 Q80.91,57.27 77.41,58.39 Q75.96,60.41 77.31,63.12 Q78.50,64.31 75.25,63.81 Q73.73,65.08 74.74,67.64 Q75.20,70.05 71.81,69.73 Q69.85,70.25 69.91,72.73 Q69.54,75.47 66.34,74.49 Q64.94,74.25 64.94,76.48 Q63.49,78.84 60.32,76.86 Q58.35,76.79 56.94,79.49 Q55.73,81.92 54.21,79.46 Q52.25,77.53 50.08,78.47 Q48.21,80.78 47.39,78.41 Q46.14,76.99 43.88,78.38 Q40.69,79.07 39.92,75.38 Q39.01,73.40 36.19,73.77 Q34.67,73.51 36.67,69.88 Q35.50,68.21 31.98,68.23 Q30.44,68.02 33.18,65.43 Q32.91,63.71 29.95,63.11 Q27.72,62.00 30.26,59.62 Q31.16,57.19 29.14,55.05 Q28.06,53.29 31.70,51.84 Q32.20,50.35 29.92,48.27 Q28.60,45.20 31.90,43.91 Q33.10,43.41 31.63,41.42 Q32.35,39.63 37.00,40.63 Q38.85,39.63 38.76,36.67 Q38.41,34.57 40.90,36.18 Q42.99,35.79 43.67,32.95 Q44.51,30.08 47.07,31.74 Q49.31,32.69 50.96,30.79 Q51.97,29.42 53.35,32.70 Q55.70,32.67 58.27,29.80 Q59.32,29.14 59.39,33.19 Q61.58,34.13 64.75,32.41 Q66.46,32.25 65.90,36.22 Q66.71,37.23 69.15,35.97 Q71.58,36.17 70.81,39.79 Q71.49,41.15 74.41,40.74 Q77.40,42.14 76.14,45.89 Q75.77,46.84 78.18,46.75 Q80.40,48.76 77.82,51.90 Q77.19,53.88 79.52,55.73 Z" fill="#FFFFFF"/>
+
+    <!-- Goggle strap, drawn under the lenses so they sit on top of it. -->
+    <path d="M21,49.5 Q54,41.5 87,49.5 L87,55.5 Q54,47.5 21,55.5 Z" fill="#6B4526"/>
+
+    <!-- Muzzle: a soft wedge, fox-like rather than square. -->
+    <path d="M42.0,62.0 Q54.0,59.5 66.0,62.0
+             Q65.0,74.0 54.0,77.5
+             Q43.0,74.0 42.0,62.0 Z" fill="#FFFFFF"/>
+    <!-- Tongue, tucked under the jaw so it cannot be mistaken for a beard. -->
+    <path d="M49.6,74.5 Q54.0,73.5 58.4,74.5
+             Q57.4,80.5 54.0,80.8
+             Q50.6,80.5 49.6,74.5 Z"
+          fill="#E8748A" stroke-width="1.5"/>
+    <ellipse cx="54.0" cy="65.0" rx="5.8" ry="4.4" fill="#22272E" stroke-width="1.6"/>
+    <!-- Mouth: kept short and well inside the muzzle. -->
+    <path d="M54.0,69.0 L54.0,72.2
+             M54.0,72.2 Q49.8,76.4 46.4,72.0
+             M54.0,72.2 Q58.2,76.4 61.6,72.0"
+          fill="none" stroke-width="2.0"/>
+    <path d="M51.6,63.4 Q52.9,62.5 54.3,63.4"
+          fill="none" stroke="#7C848E" stroke-width="1.2" stroke-linecap="round"/>
+
+    <!-- Eyes, drawn before the lenses and seen through them. Opaque goggles were
+         period-correct and completely lifeless. -->
+    <g stroke="none">
+      <ellipse cx="42.0" cy="51.9" rx="4.0" ry="4.5" fill="#22272E"/>
+      <ellipse cx="66.0" cy="51.9" rx="4.0" ry="4.5" fill="#22272E"/>
+      <circle cx="43.5" cy="50.1" r="1.5" fill="#FFFFFF" opacity="0.95"/>
+      <circle cx="67.5" cy="50.1" r="1.5" fill="#FFFFFF" opacity="0.95"/>
+    </g>
+  </g>
+
+  <!-- Goggles last: they read as worn over the face rather than drawn on it. -->
+  <g>
+    <circle cx="42.0" cy="51.5" r="9.0" fill="#F2A93C" fill-opacity="0.76"
+            stroke="#C9982F" stroke-width="3.4"/>
+    <circle cx="42.0" cy="51.5" r="9.0" fill="none" stroke="#22272E" stroke-width="1.5"/>
+    <circle cx="42.0" cy="51.5" r="10.7" fill="none" stroke="#8F6A1C" stroke-width="1"
+            opacity="0.55"/>
+    <path d="M37.05,47.45 Q41.1,44.3 45.15,46.55"
+          fill="none" stroke="#FFD98A" stroke-width="2.6" stroke-linecap="round" opacity="0.9"/>
+    <circle cx="66.0" cy="51.5" r="9.0" fill="#F2A93C" fill-opacity="0.76"
+            stroke="#C9982F" stroke-width="3.4"/>
+    <circle cx="66.0" cy="51.5" r="9.0" fill="none" stroke="#22272E" stroke-width="1.5"/>
+    <circle cx="66.0" cy="51.5" r="10.7" fill="none" stroke="#8F6A1C" stroke-width="1"
+            opacity="0.55"/>
+    <path d="M61.05,47.45 Q65.1,44.3 69.15,46.55"
+          fill="none" stroke="#FFD98A" stroke-width="2.6" stroke-linecap="round" opacity="0.9"/></g>
+  <path d="M52.0,51.5 L56.0,51.5" stroke="#C9982F" stroke-width="4"
+        stroke-linecap="round"/>
+  <path d="M52.0,51.5 L56.0,51.5" stroke="#22272E" stroke-width="1.4"
+        stroke-linecap="round"/>
+  
+</svg>

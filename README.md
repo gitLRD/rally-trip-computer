@@ -121,10 +121,32 @@ the release signature. See [RELEASING.md](RELEASING.md).
 
 Released under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
 
-## Icon attribution
+## Icon
 
-The app icon is assembled from three icons from the Noun Project, used under CC BY. The
-originals are in `misc/logo_assets/`:
+The app icon is a Japanese Spitz in a pair of old-fashioned racing goggles, drawn as
+vector art and covered by the same GPL-3.0-or-later licence as the rest of the project.
+
+It is generated rather than hand-drawn: `misc/spitz_logo.py` emits `misc/logo_spitz.svg`
+and the two masked variants the launcher needs. The fur is the reason — it takes a couple
+of dozen jittered points to read as fluff rather than as a cog wheel, and those are far
+easier to retune as parameters than as path data. The jitter is seeded, so regenerating
+produces byte-identical output instead of a diff every time.
+
+To regenerate after changing it:
+
+```sh
+python3 misc/spitz_logo.py misc/logo_spitz.svg square
+```
+
+then re-render the mipmaps at 108dp (foreground) and 48dp (legacy) across all five
+densities. The foreground is scaled to 82% so a circular launcher mask crops a little ruff
+rather than taking the ear tips off.
+
+### Previous icon
+
+The earlier icon was assembled from three icons from the Noun Project, used under CC BY.
+It is no longer shipped, but the originals remain in `misc/logo_assets/` and the
+attribution stands for as long as they do:
 
 * Odometer — P Thanga Vignesh
 * Satellite — Eugene Dobrik
