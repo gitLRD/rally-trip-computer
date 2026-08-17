@@ -72,7 +72,7 @@ class ScreenshotTest {
                 }
             }
         }
-        compose.onRoot().captureRoboImage("src/test/screenshots/$name.png")
+        compose.onRoot().captureRoboImage("src/test/screenshots/$name.png", screenshotOptions())
     }
 
     @Test

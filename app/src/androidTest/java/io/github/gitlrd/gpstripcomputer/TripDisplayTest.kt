@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -166,8 +167,11 @@ class TripDisplayTest {
                 onReset = {}
             )
         }
-        compose.onNodeWithText("0.00").assertIsDisplayed()
-        
+        // Distance and average speed both read 0.00 on a fresh trip, and the unit is now
+        // a separate element, so the two are no longer distinguishable by text alone.
+        compose.onAllNodesWithText("0.00").assertCountEquals(2)
+        compose.onNodeWithText("mi").assertIsDisplayed()
+        compose.onNodeWithText("mph").assertIsDisplayed()
         compose.onNodeWithText("Time 0:00", ignoreCase = true).assertIsDisplayed()
     }
 

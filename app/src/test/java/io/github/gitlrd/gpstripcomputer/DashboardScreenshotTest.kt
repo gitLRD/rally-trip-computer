@@ -112,7 +112,7 @@ class DashboardScreenshotTest {
                 }
             }
         }
-        compose.onRoot().captureRoboImage("src/test/screenshots/$name.png")
+        compose.onRoot().captureRoboImage("src/test/screenshots/$name.png", screenshotOptions())
     }
 
     @Test
@@ -187,6 +187,6 @@ class DashboardScreenshotTest {
                 }
             }
         }
-        compose.onRoot().captureRoboImage("src/test/screenshots/dashboard_unfolded.png")
+        compose.onRoot().captureRoboImage("src/test/screenshots/dashboard_unfolded.png", screenshotOptions())
     }
 }

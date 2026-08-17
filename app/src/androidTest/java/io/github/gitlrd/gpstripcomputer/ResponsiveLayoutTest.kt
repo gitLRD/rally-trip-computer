@@ -48,8 +48,8 @@ class ResponsiveLayoutTest {
     }
 
     private fun assertEverythingVisible() {
-        compose.onAllNodesWithText("Trip 1")[0].assertIsDisplayed()
-        compose.onAllNodesWithText("Trip 2")[0].assertIsDisplayed()
+        compose.onAllNodesWithText("Trip 1", substring = true, ignoreCase = true)[0].assertIsDisplayed()
+        compose.onAllNodesWithText("Trip 2", substring = true, ignoreCase = true)[0].assertIsDisplayed()
         compose.onNodeWithText("Current Speed", ignoreCase = true).assertIsDisplayed()
     }
 
@@ -82,8 +82,8 @@ class ResponsiveLayoutTest {
         showAt(width = 424.dp, height = 990.dp)
 
         val speed = compose.onNodeWithText("Current Speed", ignoreCase = true).getUnclippedBoundsInRoot()
-        val trip1 = compose.onAllNodesWithText("Trip 1")[0].getUnclippedBoundsInRoot()
-        val trip2 = compose.onAllNodesWithText("Trip 2")[0].getUnclippedBoundsInRoot()
+        val trip1 = compose.onAllNodesWithText("Trip 1", substring = true, ignoreCase = true)[0].getUnclippedBoundsInRoot()
+        val trip2 = compose.onAllNodesWithText("Trip 2", substring = true, ignoreCase = true)[0].getUnclippedBoundsInRoot()
 
         // One column: each trip sits above the next, and the speed card below both.
         assertTrue("trip 2 should be below trip 1", trip2.top > trip1.top)
@@ -95,8 +95,8 @@ class ResponsiveLayoutTest {
         showAt(width = 940.dp, height = 846.dp)
 
         val speed = compose.onNodeWithText("Current Speed", ignoreCase = true).getUnclippedBoundsInRoot()
-        val trip1 = compose.onAllNodesWithText("Trip 1")[0].getUnclippedBoundsInRoot()
-        val trip2 = compose.onAllNodesWithText("Trip 2")[0].getUnclippedBoundsInRoot()
+        val trip1 = compose.onAllNodesWithText("Trip 1", substring = true, ignoreCase = true)[0].getUnclippedBoundsInRoot()
+        val trip2 = compose.onAllNodesWithText("Trip 2", substring = true, ignoreCase = true)[0].getUnclippedBoundsInRoot()
 
         // Two columns: trips still stack on the left, speed card alongside on the right.
         assertTrue("trip 2 should be below trip 1", trip2.top > trip1.top)
