@@ -1,16 +1,10 @@
 First release.
 
-* Two independent trip computers plus a live speed readout
-* Distance, average speed, elapsed time and maximum speed per trip
-* Average speed from distance over time, with a setting to include or exclude
-  time spent stopped
-* Regularity mode for events whose regulations forbid an average speed
-  computer: each average speed becomes a stopwatch, tap to start or stop and
-  hold to clear. Switching mode clears every trip and stopwatch, in both
-  directions, so nothing is carried between them
-* Poor-accuracy fixes discarded, and no distance clocked up while stationary
-* Keeps recording in the background with an ongoing notification
-* Trips saved as you go and restored on launch
+* Two independent trip meters plus a live speed readout
+* Distance, average speed, trip time and maximum speed
+* Regularity mode: stopwatches replace average speed, and switching
+  mode clears everything in both directions
+* Poor-accuracy fixes discarded; no distance added while stationary
+* Records in the background; trips saved as you go
 * Metric and imperial units
-* Light, dark and red-on-black night themes, with a brightness control
-* Layout adapts to foldables, tablets and split-screen
+* Light, dark and red-on-black night modes, with brightness control
