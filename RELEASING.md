@@ -35,7 +35,7 @@ This part is manual and needs a **GitLab** account — `fdroiddata` lives on Git
 GitHub.
 
 1. Fork <https://gitlab.com/fdroid/fdroiddata>.
-2. Add `metadata/io.github.gitlrd.gpstripcomputer.yml` with the contents below.
+2. Add `metadata/io.github.gitlrd.rallytripcomputer.yml` with the contents below.
 3. Open a merge request against `fdroiddata`.
 
 ```yaml
@@ -44,11 +44,11 @@ Categories:
   - Sports & Health
 License: GPL-3.0-or-later
 AuthorName: gitLRD
-SourceCode: https://github.com/gitLRD/gps-trip-computer-app
-IssueTracker: https://github.com/gitLRD/gps-trip-computer-app/issues
+SourceCode: https://github.com/gitLRD/rally-trip-computer
+IssueTracker: https://github.com/gitLRD/rally-trip-computer/issues
 
 RepoType: git
-Repo: https://github.com/gitLRD/gps-trip-computer-app.git
+Repo: https://github.com/gitLRD/rally-trip-computer.git
 
 Builds:
   - versionName: 1.0.0
@@ -71,8 +71,8 @@ Before opening the merge request it is worth running F-Droid's own lint, which c
 of what a reviewer would otherwise bounce it for:
 
 ```sh
-fdroid lint io.github.gitlrd.gpstripcomputer
-fdroid build io.github.gitlrd.gpstripcomputer:1
+fdroid lint io.github.gitlrd.rallytripcomputer
+fdroid build io.github.gitlrd.rallytripcomputer:1
 ```
 
 ### If the build is rejected

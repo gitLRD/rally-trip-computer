@@ -8,14 +8,14 @@ plugins {
 }
 
 android {
-    namespace = "io.github.gitlrd.gpstripcomputer"
+    namespace = "io.github.gitlrd.rallytripcomputer"
     // Deliberately ahead of targetSdk: androidx releases increasingly require compiling
     // against 36, but opting in to the Android 15/16 behaviour changes — edge-to-edge
     // enforcement above all — is a separate decision that needs testing on real hardware.
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.github.gitlrd.gpstripcomputer"
+        applicationId = "io.github.gitlrd.rallytripcomputer"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

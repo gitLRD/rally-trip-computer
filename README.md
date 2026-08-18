@@ -1,6 +1,6 @@
-# GPS Trip Computer
+# Rally Trip Computer
 
-[![CI](https://github.com/gitLRD/gps-trip-computer-app/actions/workflows/ci.yml/badge.svg)](https://github.com/gitLRD/gps-trip-computer-app/actions/workflows/ci.yml)
+[![CI](https://github.com/gitLRD/rally-trip-computer/actions/workflows/ci.yml/badge.svg)](https://github.com/gitLRD/rally-trip-computer/actions/workflows/ci.yml)
 
 Two independent trip meters and a live speed readout, using nothing but the phone's GPS
 receiver. Built for **UK 12-car road rallies** — a pair of trip meters on the dashboard

@@ -1,0 +1,53 @@
+package io.github.gitlrd.rallytripcomputer
+
+/**
+ * Speeds at or above this count as "moving" (0.5 m/s is about 1.8 km/h). Below it the
+ * reading is treated as a stationary receiver jittering rather than genuine movement.
+ *
+ * Nothing is lost below the threshold: the tracker holds its measuring anchor where it is,
+ * so distance covered while crawling is added as soon as real movement resumes.
+ */
+const val MOVING_THRESHOLD_MPS = 0.5
+
+/**
+ * A single trip computer.
+ *
+ * Average speed is derived from distance over time rather than by averaging the individual
+ * GPS speed readings — a sample mean is biased by however often the receiver reports, and
+ * cannot account for time spent stopped.
+ *
+ * Distance and time accumulate separately: distance advances when a fix arrives, time
+ * advances on a fixed tick. That keeps a long stop, during which the receiver may send
+ * nothing at all, from being invisible to the average.
+ */
+data class Trip(
+    val distanceMetres: Double = 0.0,
+    val elapsedMillis: Long = 0L,
+    val movingMillis: Long = 0L,
+    val maxSpeedMps: Double = 0.0
+) {
+    /**
+     * @param includeStoppedTime when true, divides by total elapsed time so stops drag the
+     *   average down; when false, divides only by time spent above [MOVING_THRESHOLD_MPS].
+     */
+    fun averageSpeedMps(includeStoppedTime: Boolean): Double {
+        val millis = if (includeStoppedTime) elapsedMillis else movingMillis
+        if (millis <= 0L) return 0.0
+        return distanceMetres / (millis / 1000.0)
+    }
+
+    fun plusDistance(metres: Double): Trip =
+        if (metres <= 0.0) this else copy(distanceMetres = distanceMetres + metres)
+
+    fun plusTime(millis: Long, speedMps: Double): Trip {
+        if (millis <= 0L) return this
+        val moving = speedMps >= MOVING_THRESHOLD_MPS
+        return copy(
+            elapsedMillis = elapsedMillis + millis,
+            movingMillis = movingMillis + if (moving) millis else 0L
+        )
+    }
+
+    fun withSpeedSample(speedMps: Double): Trip =
+        if (speedMps > maxSpeedMps) copy(maxSpeedMps = speedMps) else this
+}
