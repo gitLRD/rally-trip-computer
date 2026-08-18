@@ -1,33 +1,52 @@
-Two independent trip meters and a live speed readout, using nothing but your phone's GPS
-receiver. Built for road rallying — a pair of trip meters on the dashboard without bolting
-anything permanent into the car — but just as useful for cycling, walking or any drive
-where you want to know how far you have actually gone.
+A pair of trip meters and a live speed readout for road rallying, using nothing but your
+phone's GPS receiver. Two trips on the dashboard without bolting anything permanent into
+the car — and just as useful for cycling, walking, or any drive where you want to know how
+far you have actually gone.
 
 No account, no network, no analytics, and no internet permission at all. Nothing leaves
 your device.
 
-Each trip records distance, average speed, elapsed time and maximum speed, and either can
-be reset on its own by tapping it. Keep one running for the whole journey and use the other
-for a single leg between junctions.
+Regularity mode
 
-Average speed is worked out from distance over time rather than by averaging speed
-readings, so it stays honest over a long run. A setting decides what happens when you stop:
-leave "Include stopped time" on and a break pulls your average down, which is what you want
-against a schedule. Switch it off for a moving average instead.
+Many regularity events forbid a computer that works out average speed. Switch to regularity
+mode and every average speed on the screen is replaced by a stopwatch: tap to start or
+stop, hold to clear. Changing mode wipes both trips and both stopwatches, in either
+direction, so there is nothing carried over from before the switch and nothing to explain
+to a scrutineer.
 
-Distance is guarded carefully. Fixes with poor reported accuracy are discarded, and
-distance only accumulates while the receiver reports real movement — so sitting still does
-not slowly clock up miles you never drove. Ground covered while crawling along slowly is
-still counted.
+Two trip meters
+
+Each records distance, trip time and maximum speed, and either can be reset on its own with
+a tap. Keep one running for the whole event and zero the other at each junction.
+
+In standard mode each also shows average speed, worked out from distance over time rather
+than by averaging speed readings, so it stays honest over a long run. "Include stopped
+time" decides what happens when you stop: leave it on and a hold-up pulls your average
+down, which is what you want against a schedule. Switch it off for a moving average
+instead.
+
+Built for the dark
+
+Rallies run at night. Night mode is red on black, which preserves the dark adaptation a
+navigator loses to a bright screen, and there is a brightness control in the app so you can
+go dimmer than Android normally allows without leaving the screen. Readings are set in
+large tabular figures, so the digits do not shuffle sideways as they tick over.
+
+Distance you can trust
+
+Fixes with poor reported accuracy are discarded, and distance only accumulates while the
+receiver reports real movement, so sitting at a control does not slowly clock up miles you
+never drove. Ground covered while crawling along is still counted.
 
 Features:
 
-* Two independent trip computers, each resettable on its own
-* Live speed readout, plus trip time and maximum speed
+* Two independent trip meters, each resettable on its own
+* Regularity mode: stopwatches instead of average speed, and a clean slate on every switch
+* Live speed readout with a scale you can read at a glance
+* Distance, trip time and maximum speed per trip
 * Overall or moving average speed
 * Metric and imperial units
-* Light, dark, and a red-on-black night mode that preserves your night vision
-* In-app brightness control
+* Light, dark, and a red-on-black night mode, plus an in-app brightness control
 * Keeps recording in the background, with an ongoing notification you can stop from
 * Trips are saved as you go and survive the app being closed
 * Adapts to foldables, tablets and split-screen
