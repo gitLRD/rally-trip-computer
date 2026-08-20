@@ -58,14 +58,19 @@ Builds:
     gradle:
       - yes
 
-AutoUpdateMode: Version v%v
+AutoUpdateMode: Version
 UpdateCheckMode: Tags
 CurrentVersion: 1.0.0
 CurrentVersionCode: 1
 ```
 
-`AutoUpdateMode: Version v%v` tells F-Droid that tags are the version prefixed with `v`, so
-future releases are picked up without touching this file again.
+`UpdateCheckMode: Tags` finds new releases from the repository's tags, and `AutoUpdateMode:
+Version` then adds a build block for each one, so future releases are picked up without
+touching this file again.
+
+`Version` takes **no pattern** here. A pattern like `Version v%v` is only for
+`UpdateCheckMode: HTTP`, where the tag name has to be reconstructed from a version string;
+with `Tags` the tag that was found is used directly, and adding a pattern is a lint error.
 
 Before opening the merge request it is worth running F-Droid's own lint, which catches most
 of what a reviewer would otherwise bounce it for:
