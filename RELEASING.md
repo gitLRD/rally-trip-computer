@@ -55,7 +55,7 @@ Repo: https://github.com/gitLRD/rally-trip-computer.git
 Builds:
   - versionName: 1.0.0
     versionCode: 1
-    commit: v1.0.0
+    commit: dc1bfabb823dd02001327bdb7799f01c2f1f28a0
     subdir: app
     gradle:
       - yes
@@ -73,6 +73,19 @@ touching this file again.
 `Version` takes **no pattern** here. A pattern like `Version v%v` is only for
 `UpdateCheckMode: HTTP`, where the tag name has to be reconstructed from a version string;
 with `Tags` the tag that was found is used directly, and adding a pattern is a lint error.
+
+`commit` must be a **full 40-character commit hash, not a tag name**. Reviewers ask for
+this because a tag is mutable: it can be moved to point at different code after the recipe
+has been reviewed, whereas a hash cannot. Note that `v1.0.0` is an *annotated* tag, so
+`git rev-parse v1.0.0` gives the tag object rather than the commit — dereference it:
+
+```sh
+git rev-parse v1.0.0^{}
+```
+
+Later releases do not need this done by hand. `fdroid checkupdates` writes the tag name
+into a new build entry and then immediately resolves it with `vcs.getref()`, which
+dereferences to the commit hash, so the recipe stays hash-based on its own.
 
 `AutoName` has to be written out even though nothing here sets it by hand. `fdroid
 checkupdates` derives it from `android:label` in the manifest, and fdroiddata's CI runs
