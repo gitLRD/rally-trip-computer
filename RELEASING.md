@@ -47,6 +47,8 @@ AuthorName: gitLRD
 SourceCode: https://github.com/gitLRD/rally-trip-computer
 IssueTracker: https://github.com/gitLRD/rally-trip-computer/issues
 
+AutoName: Rally Trip Computer
+
 RepoType: git
 Repo: https://github.com/gitLRD/rally-trip-computer.git
 
@@ -72,6 +74,14 @@ touching this file again.
 `UpdateCheckMode: HTTP`, where the tag name has to be reconstructed from a version string;
 with `Tags` the tag that was found is used directly, and adding a pattern is a lint error.
 
+`AutoName` has to be written out even though nothing here sets it by hand. `fdroid
+checkupdates` derives it from `android:label` in the manifest, and fdroiddata's CI runs
+`checkupdates` and then `git diff --exit-code` — so the file must already contain whatever
+the tool would generate, or the `checkupdates` job fails. If the app is ever renamed,
+update this line to match the new label. Its position matters too: `fdroid rewritemeta`
+enforces a canonical field order in which `AutoName` sits in its own block between
+`IssueTracker` and `RepoType`.
+
 Before opening the merge request it is worth running F-Droid's own lint, which catches most
 of what a reviewer would otherwise bounce it for:
 
@@ -80,9 +90,27 @@ fdroid lint io.github.gitlrd.rallytripcomputer
 fdroid build io.github.gitlrd.rallytripcomputer:1
 ```
 
+### Make the source repository public first
+
+`fdroid build` clones `Repo` anonymously. If <https://github.com/gitLRD/rally-trip-computer>
+is private the clone fails with `Invalid username or token`, and `fdroid build`,
+`checkupdates` and `check source code` all fail together within seconds. Note that a local
+`git ls-remote` is not a useful check here: it succeeds against a private repo because it
+picks up the credential helper. Test the way CI does, without credentials:
+
+```sh
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  git ls-remote https://github.com/gitLRD/rally-trip-computer.git
+```
+
 ### If the build is rejected
 
-The likeliest cause is `compileSdk = 36`, which needs a recent buildserver SDK. It is set
-ahead of `targetSdk = 34` on purpose — androidx releases increasingly require compiling
-against 36 — so if the buildserver cannot supply it, ask on the merge request rather than
+`compileSdk = 36` is not a problem: the buildserver installs the platform on demand, and
+version 1.0.0 built there successfully on JDK 21 with AGP 8.10.1. It is set ahead of
+`targetSdk = 34` on purpose — androidx releases increasingly require compiling against 36 —
+so if a future buildserver ever cannot supply it, ask on the merge request rather than
 lowering it, since lowering it breaks the dependency updates it exists to allow.
+
+Note that the `YAML 1.2` CI job does not check this file. It is scoped to `.gitlab-ci.yml`
+and `config/`; app recipes are validated by `schema validation`, `fdroid lint` and
+`fdroid rewritemeta` instead.
