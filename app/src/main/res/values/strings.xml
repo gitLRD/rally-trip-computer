@@ -39,6 +39,12 @@
     <string name="rally_mode_regularity">Regularity</string>
     <string name="rally_mode_summary">Regularity replaces average speed with a stopwatch</string>
 
+    <string name="rally_time">Rally time</string>
+    <string name="rally_time_phone">Phone time</string>
+    <string name="rally_time_reads">Reads %1$s</string>
+    <string name="rally_time_zero">0</string>
+    <string name="rally_time_zero_description">Back to phone time</string>
+
     <string name="stopwatch">Stopwatch</string>
     <string name="stopwatch_running">Running</string>
     <string name="stopwatch_stopped">Stopped</string>

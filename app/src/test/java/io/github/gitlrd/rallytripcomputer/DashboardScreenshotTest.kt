@@ -25,6 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.TimeZone
 
 /**
  * The whole dashboard rather than a single card.
@@ -49,6 +50,14 @@ class DashboardScreenshotTest {
         movingMillis = 1_500_000,
         maxSpeedMps = 26.8
     )
+
+    /**
+     * 2026-01-15 20:33:40 UTC, with the zone pinned, so the clock in the goldens does not
+     * move with the wall clock — the whole point of the panel taking its time as a parameter.
+     */
+    private val someEvening = 1_768_509_220_000L
+    private val utc: TimeZone = TimeZone.getTimeZone("UTC")
+    private val offsetClock = RallyClock(offsetSeconds = -20)
 
     /** The second trip reset at the last junction. */
     private val trip2 = Trip(
@@ -80,6 +89,12 @@ class DashboardScreenshotTest {
                                 .padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            RallyTimePanel(
+                                clock = offsetClock,
+                                nowEpochMillis = someEvening,
+                                timeZone = utc,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                             TripRow(
                                 tripNumber = 1,
                                 trip = trip1,
@@ -150,10 +165,20 @@ class DashboardScreenshotTest {
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.background)
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxSize().padding(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            RallyTimePanel(
+                                clock = offsetClock,
+                                nowEpochMillis = someEvening,
+                                timeZone = utc,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
                             Column(
                                 modifier = Modifier.fillMaxHeight().weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -182,6 +207,7 @@ class DashboardScreenshotTest {
                                 unitSystem = UnitSystem.IMPERIAL,
                                 modifier = Modifier.fillMaxHeight().weight(1f)
                             )
+                            }
                         }
                     }
                 }

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -14,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.TimeZone
 
 /**
  * What the cards actually render. Values assume the device locale uses a full stop as the
@@ -250,5 +252,112 @@ class TripDisplayTest {
         showRegularityTrip(onReset = { resets++ })
         compose.onAllNodes(hasClickAction())[0].performClick()
         assertEquals(1, resets)
+    }
+
+    // --- the rally clock -----------------------------------------------------------------
+
+    /** 2026-01-15 20:33:40 UTC. The zone is passed in so the assertion is not the emulator's. */
+    private val someEvening = 1_768_509_220_000L
+    private val utc: TimeZone = TimeZone.getTimeZone("UTC")
+
+    @Test
+    fun theRallyTimePanelShowsTheOrganisersTimeRatherThanThePhones() {
+        compose.setContent {
+            RallyTimePanel(
+                clock = RallyClock(offsetSeconds = -20),
+                nowEpochMillis = someEvening,
+                timeZone = utc
+            )
+        }
+        compose.onNodeWithText("20:33:20").assertIsDisplayed()
+        compose.onNodeWithText("20:33:40").assertDoesNotExist()
+        compose.onNodeWithText("Rally time", substring = true, ignoreCase = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun anUnsetRallyClockShowsThePhoneTimeUnchanged() {
+        compose.setContent {
+            RallyTimePanel(clock = RallyClock(), nowEpochMillis = someEvening, timeZone = utc)
+        }
+        compose.onNodeWithText("20:33:40").assertIsDisplayed()
+    }
+
+    /** The clock is a readout, not a control: a stray tap on it must do nothing. */
+    @Test
+    fun theRallyTimePanelIsNotTappable() {
+        compose.setContent {
+            RallyTimePanel(clock = RallyClock(), nowEpochMillis = someEvening, timeZone = utc)
+        }
+        compose.onAllNodes(hasClickAction()).assertCountEquals(0)
+    }
+
+    // --- setting it ----------------------------------------------------------------------
+
+    private fun showRallyTimeSetting(
+        clock: RallyClock = RallyClock(),
+        onNudge: (Int) -> Unit = {},
+        onZero: () -> Unit = {}
+    ) {
+        compose.setContent {
+            RallyTimeSetting(
+                clock = clock,
+                nowEpochMillis = someEvening,
+                timeZone = utc,
+                onNudge = onNudge,
+                onZero = onZero
+            )
+        }
+    }
+
+    @Test
+    fun theNudgeButtonsStepTheOffsetByOneAndTenSeconds() {
+        val steps = mutableListOf<Int>()
+        showRallyTimeSetting(onNudge = { steps += it })
+
+        compose.onNodeWithText("-10 s").performClick()
+        compose.onNodeWithText("-1 s").performClick()
+        compose.onNodeWithText("+1 s").performClick()
+        compose.onNodeWithText("+10 s").performClick()
+
+        assertEquals(listOf(-10, -1, 1, 10), steps)
+    }
+
+    /**
+     * Labelled for a screen reader as what it does, not as the "0" printed on it — a bare
+     * zero read aloud among four signed offsets says nothing about which one it is.
+     */
+    @Test
+    fun theZeroButtonPutsTheClockBackOnPhoneTime() {
+        var zeroed = 0
+        showRallyTimeSetting(clock = RallyClock(offsetSeconds = -20), onZero = { zeroed++ })
+
+        compose.onNodeWithContentDescription("Back to phone time").performClick()
+
+        assertEquals(1, zeroed)
+    }
+
+    /** Zero sits between the two directions it separates, not off at one end. */
+    @Test
+    fun theNudgeButtonsRunFromMinusTenToPlusTenAroundZero() {
+        showRallyTimeSetting()
+        val labels = compose.onAllNodes(hasClickAction())
+            .fetchSemanticsNodes()
+            .size
+        assertEquals("four nudges and a zero", 5, labels)
+    }
+
+    /** Set it against a marshal's clock by reading what it will say, not by doing sums. */
+    @Test
+    fun theSettingShowsWhatTheClockWillRead() {
+        showRallyTimeSetting(clock = RallyClock(offsetSeconds = -20))
+        compose.onNodeWithText("20:33:20", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("-20 s").assertIsDisplayed()
+    }
+
+    @Test
+    fun theSettingSaysSoWhenTheClockIsStillOnPhoneTime() {
+        showRallyTimeSetting(clock = RallyClock())
+        compose.onNodeWithText("Phone time", ignoreCase = true).assertIsDisplayed()
     }
 }

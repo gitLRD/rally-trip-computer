@@ -22,6 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.TimeZone
 
 /**
  * Pixel-level regression cover for the readouts, run on the JVM through Robolectric so it
@@ -222,6 +223,68 @@ class ScreenshotTest {
                 includeStoppedTime = true,
                 rallyMode = RallyMode.STANDARD,
                 onReset = {}
+            )
+        }
+    }
+
+    // --- the rally clock ----------------------------------------------------------------
+
+    /** 2026-01-15 20:33:40 UTC — a plausible hour to be out on a 12-car. */
+    private val someEvening = 1_768_509_220_000L
+    private val utc: TimeZone = TimeZone.getTimeZone("UTC")
+
+    /**
+     * The offset clock, which is the state it spends a rally in. The indicator dot is the
+     * thing to look at: it is the only sign on the dashboard that the clock is not the
+     * phone's, so a change that loses it loses the warning.
+     */
+    @Test
+    fun rallyTimeOffsetNight() {
+        capture("rally_time_offset_night", themeMode = ThemeMode.NIGHT) {
+            RallyTimePanel(
+                clock = RallyClock(offsetSeconds = -20),
+                nowEpochMillis = someEvening,
+                timeZone = utc
+            )
+        }
+    }
+
+    /** And unset, for the difference between the two to be visible in the goldens. */
+    @Test
+    fun rallyTimeOnPhoneTimeDark() {
+        capture("rally_time_phone_dark") {
+            RallyTimePanel(
+                clock = RallyClock(),
+                nowEpochMillis = someEvening,
+                timeZone = utc
+            )
+        }
+    }
+
+    @Test
+    fun rallyTimeLight() {
+        capture("rally_time_light", themeMode = ThemeMode.LIGHT) {
+            RallyTimePanel(
+                clock = RallyClock(offsetSeconds = -20),
+                nowEpochMillis = someEvening,
+                timeZone = utc
+            )
+        }
+    }
+
+    /**
+     * The drawer row, whose five buttons have to fit a narrow sheet without the labels
+     * wrapping or being clipped — the thing most likely to break on a small screen.
+     */
+    @Test
+    fun rallyTimeSettingNight() {
+        capture("rally_time_setting_night", themeMode = ThemeMode.NIGHT, width = 320.dp) {
+            RallyTimeSetting(
+                clock = RallyClock(offsetSeconds = -20),
+                nowEpochMillis = someEvening,
+                timeZone = utc,
+                onNudge = {},
+                onZero = {}
             )
         }
     }
