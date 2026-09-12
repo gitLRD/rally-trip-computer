@@ -44,6 +44,18 @@ class Settings(context: Context) {
         get() = RallyMode.fromKey(prefs.getString(KEY_RALLY_MODE, null))
         set(value) = prefs.edit().putString(KEY_RALLY_MODE, value.key).apply()
 
+    /**
+     * The event's official time as an offset from the phone's. Deliberately *not* cleared by
+     * a change of rally mode: it is clock calibration rather than event data, and nobody
+     * gains anything by carrying it between modes — see [TripComputerViewModel.onRallyModeSelected].
+     *
+     * Read back through [RallyClock.of], so a stored value that has been hand-edited or only
+     * half-written cannot produce a clock further out than the buttons allow.
+     */
+    var rallyClock: RallyClock
+        get() = RallyClock.of(prefs.getInt(KEY_RALLY_TIME_OFFSET, 0))
+        set(value) = prefs.edit().putInt(KEY_RALLY_TIME_OFFSET, value.offsetSeconds).apply()
+
     /** [BRIGHTNESS_FOLLOW_SYSTEM], or 0..1 once the navigator has set it explicitly. */
     var screenBrightness: Float
         get() = prefs.getFloat(KEY_BRIGHTNESS, BRIGHTNESS_FOLLOW_SYSTEM)
@@ -82,5 +94,6 @@ class Settings(context: Context) {
         const val KEY_TRIPS = "trips"
         const val KEY_RALLY_MODE = "rally_mode"
         const val KEY_STOPWATCHES = "stopwatches"
+        const val KEY_RALLY_TIME_OFFSET = "rally_time_offset"
     }
 }

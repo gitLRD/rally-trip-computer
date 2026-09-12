@@ -51,6 +51,9 @@ class TripComputerViewModel(application: Application) : AndroidViewModel(applica
     var screenBrightness by mutableStateOf(settings.screenBrightness)
         private set
 
+    var rallyClock by mutableStateOf(settings.rallyClock)
+        private set
+
     fun onUnitSystemSelected(value: UnitSystem) {
         unitSystem = value
         settings.unitSystem = value
@@ -68,6 +71,10 @@ class TripComputerViewModel(application: Application) : AndroidViewModel(applica
      * and a mode that merely hid the average would leave one running behind a toggle. The
      * numbers have to be genuinely gone, and visibly so — including on the way back out of
      * regularity mode, so nobody can bank a timing and switch away to keep it.
+     *
+     * The rally clock offset is the one thing that survives. It measures the organiser's clock
+     * against the phone's, which no change of regulations alters, and an offset confers no
+     * advantage to carry across.
      */
     fun onRallyModeSelected(value: RallyMode) {
         if (value == rallyMode) return
@@ -86,6 +93,23 @@ class TripComputerViewModel(application: Application) : AndroidViewModel(applica
         screenBrightness = value
         settings.screenBrightness = value
     }
+
+    /** One press of a nudge button in the drawer. [RallyClock] does the clamping. */
+    fun onRallyTimeNudged(bySeconds: Int) = applyRallyClock(rallyClock.nudged(bySeconds))
+
+    fun onRallyTimeZeroed() = applyRallyClock(rallyClock.zeroed())
+
+    private fun applyRallyClock(value: RallyClock) {
+        rallyClock = value
+        settings.rallyClock = value
+    }
+
+    /**
+     * The phone's wall clock, which the rally clock is an offset from. Read here rather than
+     * in the composable so nothing in the UI reaches for a clock of its own — and so the
+     * screenshot tests can pass a fixed instant in instead.
+     */
+    fun wallClockNow(): Long = System.currentTimeMillis()
 
     fun hasLocationPermission(): Boolean = tracker.hasLocationPermission()
 

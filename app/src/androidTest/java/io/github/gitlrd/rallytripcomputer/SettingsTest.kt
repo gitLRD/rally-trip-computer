@@ -41,6 +41,8 @@ class SettingsTest {
         assertEquals(BRIGHTNESS_FOLLOW_SYSTEM, settings.screenBrightness, 0.0f)
         // Nobody gets regularity rules without asking for them.
         assertEquals(RallyMode.STANDARD, settings.rallyMode)
+        // The clock starts on the phone's own time; an offset is something you set at a rally.
+        assertEquals(RallyClock(), settings.rallyClock)
     }
 
     @Test
@@ -51,6 +53,7 @@ class SettingsTest {
         settings.themeMode = ThemeMode.NIGHT
         settings.screenBrightness = 0.25f
         settings.rallyMode = RallyMode.REGULARITY
+        settings.rallyClock = RallyClock(offsetSeconds = -20)
 
         assertEquals(UnitSystem.METRIC, settings.unitSystem)
         assertFalse(settings.includeStoppedTime)
@@ -58,6 +61,7 @@ class SettingsTest {
         assertEquals(ThemeMode.NIGHT, settings.themeMode)
         assertEquals(0.25f, settings.screenBrightness, 1e-6f)
         assertEquals(RallyMode.REGULARITY, settings.rallyMode)
+        assertEquals(RallyClock(offsetSeconds = -20), settings.rallyClock)
     }
 
     @Test
@@ -156,5 +160,20 @@ class SettingsTest {
 
         assertFalse(bank.anyRunning)
         assertEquals(listOf(Stopwatch(), Stopwatch()), settings.loadStopwatches(expectedCount = 2))
+    }
+
+    /**
+     * The stored offset goes through the same clamp the buttons do, so a preferences file
+     * that has been hand-edited or half-written cannot produce a clock hours out.
+     */
+    @Test
+    fun anAbsurdStoredClockOffsetIsClamped() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.getSharedPreferences(Settings.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(Settings.KEY_RALLY_TIME_OFFSET, 99_999)
+            .commit()
+
+        assertEquals(MAX_RALLY_OFFSET_SECONDS, Settings(context).rallyClock.offsetSeconds)
     }
 }

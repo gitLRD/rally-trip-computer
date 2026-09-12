@@ -110,4 +110,57 @@ class ConfigurationChangeTest {
             }
         }
     }
+
+    /**
+     * The rally clock offset is calibration, not event data. Switching rally mode destroys
+     * every trip and every stopwatch on purpose, but wiping the offset too would leave the
+     * navigator resetting the clock mid-event for no reason — and unlike a banked timing,
+     * an offset carried between modes gives nobody an advantage.
+     */
+    @Test
+    fun changingRallyModeKeepsTheClockOffset() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            lateinit var viewModel: TripComputerViewModel
+            scenario.onActivity {
+                viewModel = ViewModelProvider(it)[TripComputerViewModel::class.java]
+            }
+            viewModel.onRallyTimeNudged(-20)
+
+            viewModel.onRallyModeSelected(RallyMode.REGULARITY)
+
+            assertEquals(-20, viewModel.rallyClock.offsetSeconds)
+        }
+    }
+
+    /** Set once at the start marshal, still there after Android reclaims the screen. */
+    @Test
+    fun theClockOffsetSurvivesRecreation() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                ViewModelProvider(it)[TripComputerViewModel::class.java].onRallyTimeNudged(-20)
+            }
+
+            scenario.recreate()
+
+            scenario.onActivity {
+                val after = ViewModelProvider(it)[TripComputerViewModel::class.java]
+                assertEquals(-20, after.rallyClock.offsetSeconds)
+            }
+        }
+    }
+
+    @Test
+    fun zeroingTheClockPutsItBackOnPhoneTime() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            lateinit var viewModel: TripComputerViewModel
+            scenario.onActivity {
+                viewModel = ViewModelProvider(it)[TripComputerViewModel::class.java]
+            }
+            viewModel.onRallyTimeNudged(-20)
+
+            viewModel.onRallyTimeZeroed()
+
+            assertEquals(RallyClock(), viewModel.rallyClock)
+        }
+    }
 }
