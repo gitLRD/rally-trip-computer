@@ -10,9 +10,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +35,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.RadioButton
@@ -57,6 +60,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -64,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * How often the stopwatch readout is repainted while running. Matches the tenth of a second
@@ -74,10 +80,22 @@ import java.util.Locale
  */
 private const val STOPWATCH_REDRAW_MILLIS = 100L
 
+/**
+ * The rally clock nudge buttons, either side of the zero that separates them.
+ *
+ * Ten and one: ten gets to a twenty-second discrepancy in two presses, one trims it. A finer
+ * step than a second would be dishonest — this is set by eye against somebody else's clock.
+ */
+private val RALLY_TIME_STEPS_BEHIND = listOf(-10, -1)
+private val RALLY_TIME_STEPS_AHEAD = listOf(1, 10)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripComputerScreen(viewModel: TripComputerViewModel) {
     var showHelp by remember { mutableStateOf(false) }
+    // One clock for the whole screen, so the dashboard panel and the drawer's preview can
+    // never disagree about what second it is.
+    val wallNow = tickingWallClock(viewModel)
     /** The mode the user has asked for but not yet confirmed clearing everything for. */
     var pendingRallyMode by remember { mutableStateOf<RallyMode?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -137,6 +155,13 @@ fun TripComputerScreen(viewModel: TripComputerViewModel) {
                     RallyModeSetting(
                         selected = viewModel.rallyMode,
                         onSelect = { pendingRallyMode = it }
+                    )
+
+                    RallyTimeSetting(
+                        clock = viewModel.rallyClock,
+                        nowEpochMillis = wallNow,
+                        onNudge = viewModel::onRallyTimeNudged,
+                        onZero = viewModel::onRallyTimeZeroed
                     )
 
                     UnitSetting(
@@ -199,6 +224,7 @@ fun TripComputerScreen(viewModel: TripComputerViewModel) {
             ) { paddingValues ->
                 TripComputerContent(
                     viewModel = viewModel,
+                    nowEpochMillis = wallNow,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
@@ -221,6 +247,28 @@ fun TripComputerScreen(viewModel: TripComputerViewModel) {
             }
         }
     }
+}
+
+/**
+ * The phone's wall clock, republished once a second for the rally clock to be read against.
+ *
+ * It sleeps to the next whole second rather than a flat thousand milliseconds, so the display
+ * changes when the second actually changes instead of settling up to a second late — the
+ * clock is there to be compared against a marshal's, and a consistent lag would defeat it.
+ *
+ * Unlike the stopwatch ticker this has no off switch: a clock is wanted whether or not
+ * anything is being tracked. The cost is one small recomposition a second.
+ */
+@Composable
+private fun tickingWallClock(viewModel: TripComputerViewModel): Long {
+    var now by remember { mutableLongStateOf(viewModel.wallClockNow()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_000L - now % 1_000L)
+            now = viewModel.wallClockNow()
+        }
+    }
+    return now
 }
 
 /**
@@ -391,7 +439,11 @@ private fun BrightnessSetting(brightness: Float, onChange: (Float) -> Unit) {
  * rotation or a multi-window resize without caring which of those happened.
  */
 @Composable
-internal fun TripComputerContent(viewModel: TripComputerViewModel, modifier: Modifier = Modifier) {
+internal fun TripComputerContent(
+    viewModel: TripComputerViewModel,
+    nowEpochMillis: Long = viewModel.wallClockNow(),
+    modifier: Modifier = Modifier
+) {
     BoxWithConstraints(modifier = modifier) {
         val layout = screenLayoutFor(maxWidth.value.toInt())
 
@@ -441,23 +493,156 @@ internal fun TripComputerContent(viewModel: TripComputerViewModel, modifier: Mod
             )
         }
 
-        when (layout) {
-            ScreenLayout.STACKED -> Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                trips(Modifier.fillMaxWidth().weight(2f))
-                speed(Modifier.fillMaxWidth().weight(1f))
-            }
+        // The clock spans the width above the instruments in both arrangements, and wraps to
+        // its own height so the 2:1 trips-to-speedo weighting still divides what is left.
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            RallyTimePanel(
+                clock = viewModel.rallyClock,
+                nowEpochMillis = nowEpochMillis,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            ScreenLayout.SIDE_BY_SIDE -> Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                trips(Modifier.fillMaxHeight().weight(1f))
-                speed(Modifier.fillMaxHeight().weight(1f))
+            when (layout) {
+                ScreenLayout.STACKED -> Column(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    trips(Modifier.fillMaxWidth().weight(2f))
+                    speed(Modifier.fillMaxWidth().weight(1f))
+                }
+
+                ScreenLayout.SIDE_BY_SIDE -> Row(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    trips(Modifier.fillMaxHeight().weight(1f))
+                    speed(Modifier.fillMaxHeight().weight(1f))
+                }
             }
         }
+    }
+}
+
+/**
+ * The event's official time, across the top of the dashboard.
+ *
+ * A rally runs to the organiser's clock, which is rarely the phone's — the event this was
+ * written for ran about twenty seconds behind. Every time control is read against that clock,
+ * so the app shows it rather than leaving the navigator to do the sum in the dark.
+ *
+ * Slimmer than the instrument panels below it and with no footer, because it is the one
+ * reading on the screen that nothing else on the screen depends on. It takes the time as a
+ * parameter rather than reaching for a clock of its own, which is also what keeps the
+ * screenshot goldens deterministic.
+ *
+ * No click action at all: this is a readout, and the offset is set in the drawer where a
+ * mistap on a bumpy road cannot reach it.
+ */
+@Composable
+internal fun RallyTimePanel(
+    clock: RallyClock,
+    nowEpochMillis: Long,
+    timeZone: TimeZone = TimeZone.getDefault(),
+    modifier: Modifier = Modifier
+) {
+    Panel(modifier = modifier) {
+        PanelEyebrow(
+            text = stringResource(R.string.rally_time),
+            // An offset clock cannot be told from an accurate one by reading it, so it gets
+            // the indicator — the same reason a running stopwatch has one.
+            indicator = if (clock.isOffset) MaterialTheme.colorScheme.primary else null
+        )
+        Spacer(Modifier.height(4.dp))
+        PanelReadout(
+            value = formatTimeOfDay(clock.timeAt(nowEpochMillis), timeZone),
+            unit = null,
+            maxSize = 40.sp
+        )
+    }
+}
+
+/**
+ * Setting the clock against a marshal's: nudge until the preview reads what theirs does.
+ *
+ * Nudges rather than a typed-in time, because this gets set in an unlit car with gloves on,
+ * and two taps of -10 s covers the case it exists for. The preview is the point of the row —
+ * it means nobody has to reason about which sign an offset wants.
+ */
+@Composable
+internal fun RallyTimeSetting(
+    clock: RallyClock,
+    nowEpochMillis: Long,
+    timeZone: TimeZone = TimeZone.getDefault(),
+    onNudge: (Int) -> Unit,
+    onZero: () -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.rally_time),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = if (clock.isOffset) {
+                    formatClockOffset(clock.offsetSeconds)
+                } else {
+                    stringResource(R.string.rally_time_phone)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(
+            text = stringResource(
+                R.string.rally_time_reads,
+                formatTimeOfDay(clock.timeAt(nowEpochMillis), timeZone)
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Zero sits between the directions it separates, so which way a press moves the
+            // clock is read off the layout rather than off the labels.
+            RALLY_TIME_STEPS_BEHIND.forEach { step -> NudgeButton(step, onNudge) }
+
+            val backToPhoneTime = stringResource(R.string.rally_time_zero_description)
+            OutlinedButton(
+                onClick = onZero,
+                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
+                modifier = Modifier
+                    .weight(0.6f)
+                    // A bare "0" read aloud among four signed offsets says nothing about
+                    // which of them it is.
+                    .semantics { contentDescription = backToPhoneTime }
+            ) {
+                Text(
+                    text = stringResource(R.string.rally_time_zero),
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+
+            RALLY_TIME_STEPS_AHEAD.forEach { step -> NudgeButton(step, onNudge) }
+        }
+    }
+}
+
+/** One step of the rally clock. Labelled by [formatClockOffset], so the sign is always shown. */
+@Composable
+private fun RowScope.NudgeButton(step: Int, onNudge: (Int) -> Unit) {
+    OutlinedButton(
+        onClick = { onNudge(step) },
+        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp),
+        modifier = Modifier.weight(1f)
+    ) {
+        Text(formatClockOffset(step), style = MaterialTheme.typography.labelMedium)
     }
 }
 

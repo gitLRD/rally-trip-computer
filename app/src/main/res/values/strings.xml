@@ -39,6 +39,12 @@
     <string name="rally_mode_regularity">Regularity</string>
     <string name="rally_mode_summary">Regularity replaces average speed with a stopwatch</string>
 
+    <string name="rally_time">Rally time</string>
+    <string name="rally_time_phone">Phone time</string>
+    <string name="rally_time_reads">Reads %1$s</string>
+    <string name="rally_time_zero">0</string>
+    <string name="rally_time_zero_description">Back to phone time</string>
+
     <string name="stopwatch">Stopwatch</string>
     <string name="stopwatch_running">Running</string>
     <string name="stopwatch_stopped">Stopped</string>
@@ -50,6 +56,6 @@
     <string name="cancel">Cancel</string>
 
     <string name="help">Help</string>
-    <string name="help_body">This app gives two trip computers and an instant speed reading.\n\nEach trip computer can be used to track speed and distance, and can be reset by tapping one of their squares.\n\nIn Standard mode, average speed is worked out from distance over time. With \“Include stopped time\” switched on, time spent stationary counts towards the average, so a long stop will pull it down. Switch it off to see your moving average instead.\n\nRegularity mode is for events whose regulations forbid an average speed computer. It replaces each average speed with a stopwatch: tap to start or stop it, hold to clear it. Switching rally mode in either direction clears both trips and both stopwatches, so nothing is carried between them.\n\nWhen you have finished using the app, switch tracking off using the toggle in the settings menu to preserve battery life.</string>
+    <string name="help_body">This app gives two trip computers and an instant speed reading.\n\nEach trip computer can be used to track speed and distance, and can be reset by tapping one of their squares.\n\nIn Standard mode, average speed is worked out from distance over time. With \“Include stopped time\” switched on, time spent stationary counts towards the average, so a long stop will pull it down. Switch it off to see your moving average instead.\n\nRegularity mode is for events whose regulations forbid an average speed computer. It replaces each average speed with a stopwatch: tap to start or stop it, hold to clear it. Switching rally mode in either direction clears both trips and both stopwatches, so nothing is carried between them.\n\nRally time is the organiser\'s clock rather than your phone\'s, which are rarely the same. Set it from the settings menu: nudge the offset until the preview reads what the marshal\'s clock says. A dot beside the reading means the clock is offset; the 0 button puts it back on phone time. The offset is kept when you change rally mode, since it is not part of any timing.\n\nWhen you have finished using the app, switch tracking off using the toggle in the settings menu to preserve battery life.</string>
     <string name="ok">OK</string>
 </resources>

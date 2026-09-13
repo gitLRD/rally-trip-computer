@@ -19,6 +19,23 @@ Tracking is off until you switch it on, and stays on across restarts until you s
 off. While it is running a notification shows distance and speed, and tracking continues
 with the app in the background — checking a map mid-rally will not stop the meters.
 
+### Rally time
+
+A rally runs to the organiser's clock, and that is rarely the phone's — the event this was
+written for ran about twenty seconds behind. The clock across the top of the dashboard shows
+the official time, so a time card is read off directly rather than by doing the sum in the
+dark.
+
+Set it from the settings menu: nudge the offset by one or ten seconds until the preview reads
+what the marshal's clock says. It is bounded to ten minutes either way — an organiser's clock
+is out by seconds, and a phone an hour out is a phone to fix. A dot beside the reading means
+the clock is offset rather than on phone time.
+
+The offset is held against the phone's own clock rather than anchored to the moment it was
+set, so it survives a reboot and keeps whatever accuracy the phone has. Unlike the trips and
+the stopwatches it is **not** cleared by a change of rally mode: it is calibration rather than
+event data, and there is no advantage to be had carrying it between modes.
+
 ### Average speed
 
 Average speed is derived from distance over time, not by averaging the individual GPS speed
@@ -60,6 +77,8 @@ folding, rotation and multi-window resizing alike:
 | Under 600dp — handset portrait, or a folded cover screen | Trips stacked, speed readout beneath |
 | 600dp and over — unfolded inner screen, tablet, landscape | Trips in a left column, speed readout alongside |
 
+The rally clock spans the full width above the instruments in both arrangements.
+
 Trips live in the Application and are written to storage as you go, so neither unfolding
 the device nor Android reclaiming the process mid-event loses the numbers.
 
@@ -76,8 +95,8 @@ export JAVA_HOME=/path/to/jdk-21
 ## Tests
 
 ```sh
-./gradlew testDebugUnitTest          # 63 tests, no device needed
-./gradlew connectedDebugAndroidTest  # 27 tests, needs a device or emulator
+./gradlew testDebugUnitTest          # 135 tests, no device needed
+./gradlew connectedDebugAndroidTest  # 53 tests, needs a device or emulator
 ./gradlew verifyRoborazziDebug       # screenshot comparison
 ./gradlew lintDebug
 ```
@@ -92,7 +111,8 @@ the JVM in milliseconds:
 | `TrackingState` | Accuracy filter, movement gate, anchor holding, stale-fix timeout, per-trip reset |
 | `TripCodec` | Persisting trips, and surviving corrupt stored data |
 | `ScreenLayout` | The width breakpoint |
-| `Formatting` | Elapsed-time display |
+| `Formatting` | Elapsed-time display, and the 24-hour clock |
+| `RallyClock` | The clock offset, and clamping it |
 
 `TripTracker` is a thin adapter supplying real locations and a real clock to
 `TrackingState`, so nothing interesting is stranded behind the platform APIs. Instrumented
